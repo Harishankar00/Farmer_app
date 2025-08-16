@@ -75,10 +75,6 @@
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
         }
 
-        .upload-area:hover::before {
-            left: 100%;
-        }
-
         .upload-area.dragover {
             border-color: #10b981;
             background: rgba(16, 185, 129, 0.1);
@@ -400,9 +396,11 @@
 
                         <!-- Results Section -->
                         <div class="order-1 lg:order-2 space-y-6">
+                            <!-- Diagnosis -->
                             <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm">
                                 <p class="text-white/80 text-sm font-light mb-3">DIAGNOSIS</p>
-                                <p id="predicted_class" class="prediction-text text-white text-lg sm:text-xl font-bold text-glow"></p>
+                                <p id="diagnosisTitle" class="prediction-text text-white text-lg sm:text-xl font-bold text-glow mb-2"></p>
+                                <p id="impact" class="text-white/80 text-sm sm:text-base font-light"></p>
                             </div>
                             
                             <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm">
@@ -415,6 +413,18 @@
                                     <div class="confidence-bar">
                                         <div id="confidenceBar" class="confidence-fill" style="width: 0%"></div>
                                     </div>
+                                </div>
+                            </div>
+                            
+                            <!-- New section for Yield and Recommendations -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm">
+                                    <p class="text-white/80 text-sm font-light mb-3">PREDICTED YIELD</p>
+                                    <p id="predictedYield" class="text-white text-lg sm:text-xl font-bold text-glow">...</p>
+                                </div>
+                                <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm md:col-span-2">
+                                    <p class="text-white/80 text-sm font-light mb-3">RECOMMENDATIONS</p>
+                                    <p id="recommendations" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
                                 </div>
                             </div>
 
@@ -460,7 +470,7 @@
         const signOutBtn = document.getElementById('signOutBtn');
         const userInfo = document.getElementById('userInfo');
         const userEmailSpan = document.getElementById('userEmail');
-
+        
         // Auth state listener: check if user is logged in and handle UI
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -644,10 +654,13 @@
                     const resultImage = document.getElementById('resultImage');
                     resultImage.src = uploadedImage.src;
                     
-                    // Update results
-                    document.getElementById('predicted_class').textContent = `🌿 ${result.prediction}`;
+                    // Update results with new fields
+                    document.getElementById('diagnosisTitle').textContent = `🌿 ${result.plant_name} - ${result.disease_name}`;
+                    document.getElementById('impact').textContent = result.impact;
                     const confidence = parseFloat(result.confidence);
                     document.getElementById('confidence').textContent = (confidence * 100).toFixed(1) + '%';
+                    document.getElementById('predictedYield').textContent = `${result.predicted_yield_kg_per_acre} kg/acre`;
+                    document.getElementById('recommendations').textContent = result.recommendations;
                     
                     // Show results page
                     showResultsPage();
