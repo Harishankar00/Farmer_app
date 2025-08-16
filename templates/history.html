@@ -198,6 +198,7 @@
                 // User is signed in, fetch their history
                 try {
                     const token = await user.getIdToken();
+                    // ✅ FIX: Change the URL to the new API endpoint
                     const response = await fetch('/api/history', {
                         method: 'GET',
                         headers: {
@@ -250,7 +251,8 @@
             history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
             history.forEach(item => {
-                const date = new Date(item.timestamp._seconds * 1000).toLocaleString();
+                // ✅ FIX: The backend now sends an ISO string, so we can use it directly
+                const date = new Date(item.timestamp).toLocaleString();
                 const confidence = (item.confidence * 100).toFixed(2) + '%';
                 tableHTML += `
                     <tr>
