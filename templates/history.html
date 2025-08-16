@@ -102,6 +102,7 @@
             max-height: 70vh;
             overflow-y: auto;
             border-radius: 1.5rem;
+            max-width: 100%;
             
         }
 
@@ -126,6 +127,26 @@
                 font-size: 14px;
             }
         }
+        
+        /* Modal for recommendations */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -133,7 +154,7 @@
     
     <div class="relative z-10 min-h-screen flex flex-col items-center p-4 sm:p-8">
         <!-- Header with back button -->
-        <header class="w-full max-w-4xl flex items-center p-4">
+        <header class="w-full max-w-full flex items-center p-4">
             <a href="/" class="back-btn flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-medium transition-all">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
@@ -142,7 +163,7 @@
             </a>
         </header>
 
-        <main class="flex-1 w-full max-w-4xl flex flex-col items-center justify-center space-y-8 mt-4 sm:mt-12 mb-8">
+        <main class="flex-1 w-full max-w-full flex flex-col items-center justify-center space-y-8 mt-4 sm:mt-12 mb-8">
             <h1 class="text-3xl sm:text-4xl font-bold text-white text-glow text-center">
                 User Prediction History
             </h1>
@@ -165,6 +186,31 @@
             
         </main>
     </div>
+
+    <!-- Modal for recommendations -->
+    <div id="recommendationsModal" class="modal-overlay hidden">
+        <div class="modal-content glass-card p-6 sm:p-8 rounded-3xl space-y-4 text-white">
+            <div class="flex justify-between items-center pb-2 border-b-2 border-white/20">
+                <h3 class="text-2xl font-bold">Recommendations</h3>
+                <button id="closeModalBtn" class="text-white text-3xl font-light hover:text-white/80">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <h4 class="text-white/80 font-semibold text-lg mb-1">Harvest Recommendations</h4>
+                    <p id="modalHarvest" class="text-white/90"></p>
+                </div>
+                <div>
+                    <h4 class="text-white/80 font-semibold text-lg mb-1">Selling Strategies</h4>
+                    <p id="modalSelling" class="text-white/90"></p>
+                </div>
+                <div>
+                    <h4 class="text-white/80 font-semibold text-lg mb-1">Bargaining Tips</h4>
+                    <p id="modalBargaining" class="text-white/90"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Firebase SDKs and App Logic -->
     <script type="module">
@@ -191,6 +237,31 @@
         const historyContent = document.getElementById('historyContent');
         const historyList = document.getElementById('historyList');
         const noHistoryMessage = document.getElementById('noHistory');
+        const recommendationsModal = document.getElementById('recommendationsModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const modalHarvest = document.getElementById('modalHarvest');
+        const modalSelling = document.getElementById('modalSelling');
+        const modalBargaining = document.getElementById('modalBargaining');
+
+        // Event listener for the close button
+        closeModalBtn.addEventListener('click', () => {
+            recommendationsModal.classList.add('hidden');
+        });
+
+        // Event listener to close the modal when clicking outside of it
+        recommendationsModal.addEventListener('click', (e) => {
+            if (e.target.id === 'recommendationsModal') {
+                recommendationsModal.classList.add('hidden');
+            }
+        });
+
+        // Function to show the modal with content
+        window.showRecommendationsModal = function(harvest, selling, bargaining) {
+            modalHarvest.textContent = harvest;
+            modalSelling.textContent = selling;
+            modalBargaining.textContent = bargaining;
+            recommendationsModal.classList.remove('hidden');
+        }
         
         // Auth state listener: fetch history on successful login
         onAuthStateChanged(auth, async (user) => {
@@ -244,6 +315,7 @@
                                 <th>Confidence</th>
                                 <th>Predicted Yield</th>
                                 <th>Value</th>
+                                <th>Recommendations</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -254,8 +326,19 @@
             history.forEach(item => {
                 const date = new Date(item.timestamp).toLocaleString();
                 const confidence = (item.confidence * 100).toFixed(2) + '%';
-                const predictedYield = parseFloat(item.predicted_yield_kg_per_acre).toFixed(2) + ' kg/acre';
-                const totalValue = `₹ ${parseFloat(item.total_harvest_value).toFixed(2)}`;
+                const predictedYield = (item.predicted_yield_kg_per_acre !== undefined) ? `${parseFloat(item.predicted_yield_kg_per_acre).toFixed(2)} kg/acre` : 'N/A';
+                const totalValue = (item.total_harvest_value !== undefined) ? `₹ ${parseFloat(item.total_harvest_value).toFixed(2)}` : 'N/A';
+                
+                // ✅ FIX: Handle cases where recommendations is not an object
+                let harvestRecs = 'N/A';
+                let sellingRecs = 'N/A';
+                let bargainingRecs = 'N/A';
+                
+                if (item.recommendations && typeof item.recommendations === 'object') {
+                    harvestRecs = item.recommendations.harvest_recommendations || 'N/A';
+                    sellingRecs = item.recommendations.selling_strategies || 'N/A';
+                    bargainingRecs = item.recommendations.bargaining_tips || 'N/A';
+                }
 
                 tableHTML += `
                     <tr>
@@ -264,6 +347,12 @@
                         <td>${confidence}</td>
                         <td>${predictedYield}</td>
                         <td>${totalValue}</td>
+                        <td>
+                            <button class="back-btn px-3 py-1 rounded-lg text-sm font-medium"
+                                onclick="showRecommendationsModal('${harvestRecs.replace(/'/g, "\\'")}', '${sellingRecs.replace(/'/g, "\\'")}', '${bargainingRecs.replace(/'/g, "\\'")}')">
+                                View
+                            </button>
+                        </td>
                     </tr>
                 `;
             });
@@ -276,7 +365,6 @@
             
             historyList.innerHTML = tableHTML;
         }
-
 
         // Create animated background particles
         function createParticles() {
