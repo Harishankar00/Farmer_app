@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Classifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated background particles */
+        .bg-particles {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.7; }
+            50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
+        }
+
+        /* Glassmorphism card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        /* Enhanced upload area */
+        .upload-area {
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            min-height: 200px;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.6s;
+        }
+
+        .upload-area:hover {
+            border-color: rgba(103, 126, 234, 0.6);
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .upload-area:hover::before {
+            left: 100%;
+        }
+
+        .upload-area.dragover {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-area.has-image {
+            border: 2px solid rgba(103, 126, 234, 0.6);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Enhanced button */
+        .predict-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .predict-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.6s;
+        }
+
+        .predict-btn:hover:not(:disabled) {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6);
+        }
+
+        .predict-btn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+
+        .predict-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .predict-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        /* Loading animation */
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Page transitions */
+        .page-enter {
+            animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .page-exit {
+            animation: slideOutDown 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(100vh);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideOutDown {
+            0% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(100vh);
+            }
+        }
+
+        /* Image preview effects */
+        .image-preview {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 300px;
+            width: 100%;
+            object-fit: cover;
+            border-radius: 16px;
+        }
+
+        .image-preview:hover {
+            transform: scale(1.02);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Confidence bar */
+        .confidence-bar {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            height: 12px;
+            position: relative;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            border-radius: 10px;
+            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .confidence-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Pulse animation for title */
+        .pulse-title {
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* Icon animations */
+        .upload-icon {
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover .upload-icon {
+            transform: scale(1.1) rotate(10deg);
+            color: #667eea;
+        }
+
+        /* Text glow effect */
+        .text-glow {
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Results page specific styles */
+        .results-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: 50;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 640px) {
+            .glass-card {
+                margin: 0.5rem;
+                padding: 1.5rem;
+            }
+            
+            .upload-area {
+                min-height: 150px;
+                padding: 1rem;
+            }
+            
+            .results-page {
+                padding: 0.5rem;
+            }
+            
+            .image-preview {
+                max-height: 200px;
+            }
+        }
+
+        /* Back button */
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(-5px);
+        }
+
+        /* Text truncation for long predictions */
+        .prediction-text {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-particles"></div>
+
+    <!-- Header for user status -->
+    <header class="fixed top-0 left-0 w-full p-4 z-50 flex justify-between items-center text-white">
+        <div id="userInfo" class="flex items-center space-x-2">
+            <span class="text-sm font-semibold text-white/80">User: <span id="userEmail">Guest</span></span>
+        </div>
+        <button id="signOutBtn" class="back-btn px-4 py-2 rounded-xl text-sm font-medium transition-all hidden">
+            Sign Out
+        </button>
+    </header>
+
+    <!-- Main Upload Page -->
+    <div id="uploadPage" class="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div class="glass-card p-6 sm:p-8 rounded-3xl w-full max-w-lg space-y-6 sm:space-y-8 text-center transform transition-all duration-1000">
+            <div class="space-y-4">
+                <h1 class="text-3xl sm:text-4xl font-bold text-white pulse-title text-glow">
+                    🌿 Plant Disease Classifier
+                </h1>
+                <p class="text-white/80 text-base sm:text-lg font-light px-4">
+                    Upload an image of a plant leaf to get an instant AI diagnosis
+                </p>
+            </div>
+
+            <form id="uploadForm" class="space-y-6">
+                <div>
+                    <div id="uploadArea" class="upload-area flex justify-center items-center rounded-2xl cursor-pointer" 
+                         onclick="document.getElementById('image_file').click()"
+                         ondragover="handleDragOver(event)"
+                         ondragleave="handleDragLeave(event)"
+                         ondrop="handleDrop(event)">
+                        
+                        <!-- Default upload state -->
+                        <div id="uploadPlaceholder" class="space-y-4 text-center p-4">
+                            <svg class="upload-icon mx-auto h-12 sm:h-16 w-12 sm:w-16 text-white/70" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28m0 0l4 4m4-4V8m-4 12h4m-4 0a4 4 0 00-4 4v4m0 0l-3.172-3.172a4 4 0 00-5.656 0L28 28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <div class="text-base sm:text-lg text-white/80">
+                                <span class="font-medium">Click to upload</span>
+                                <p class="mt-1">or drag and drop</p>
+                            </div>
+                            <p id="filename" class="text-sm text-white/60 font-light">
+                                PNG, JPG, GIF up to 10MB
+                            </p>
+                        </div>
+
+                        <!-- Image preview state -->
+                        <div id="imageContainer" class="hidden w-full p-4">
+                            <img id="uploadedImage" src="" alt="Uploaded Image" class="image-preview mx-auto">
+                            <p id="imageFileName" class="text-white/80 text-sm mt-3 text-center font-medium"></p>
+                        </div>
+                    </div>
+                    <input id="image_file" name="file" type="file" class="hidden" onchange="previewImage()" accept="image/*" required>
+                </div>
+                
+                <button type="submit" id="predictBtn" class="predict-btn w-full py-3 sm:py-4 px-6 rounded-xl text-white font-semibold text-base sm:text-lg transition-all duration-300 transform">
+                    <span id="btnText">✨ Analyze Plant</span>
+                    <div id="btnSpinner" class="loading-spinner mx-auto hidden"></div>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Page (Full Screen) -->
+    <div id="resultsPage" class="results-page hidden">
+        <div class="min-h-screen flex flex-col">
+            <!-- Header with back button -->
+            <div class="flex items-center justify-between p-4 sm:p-6">
+                <button id="backBtn" class="back-btn flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-medium transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    <span>Back</span>
+                </button>
+                <h2 class="text-xl sm:text-2xl font-bold text-white text-glow">🔍 Analysis Results</h2>
+                <div class="w-20"></div> <!-- Spacer for centering -->
+            </div>
+
+            <!-- Results Content -->
+            <div class="flex-1 flex items-center justify-center p-4">
+                <div class="glass-card rounded-3xl w-full max-w-4xl p-6 sm:p-8">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-center">
+                        <!-- Image Section -->
+                        <div class="order-2 lg:order-1">
+                            <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm">
+                                <h3 class="text-white/80 text-sm font-light mb-4 text-center">ANALYZED IMAGE</h3>
+                                <img id="resultImage" src="" alt="Analyzed Image" class="image-preview mx-auto shadow-2xl">
+                            </div>
+                        </div>
+
+                        <!-- Results Section -->
+                        <div class="order-1 lg:order-2 space-y-6">
+                            <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm">
+                                <p class="text-white/80 text-sm font-light mb-3">DIAGNOSIS</p>
+                                <p id="predicted_class" class="prediction-text text-white text-lg sm:text-xl font-bold text-glow"></p>
+                            </div>
+                            
+                            <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm">
+                                <p class="text-white/80 text-sm font-light mb-4">CONFIDENCE LEVEL</p>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-center">
+                                        <span id="confidence" class="text-white font-bold text-lg sm:text-xl"></span>
+                                        <span class="text-white/60 text-sm">Accuracy</span>
+                                    </div>
+                                    <div class="confidence-bar">
+                                        <div id="confidenceBar" class="confidence-fill" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                                <button id="analyzeAgainBtn" class="predict-btn flex-1 py-3 px-6 rounded-xl text-white font-semibold text-base transition-all">
+                                    📸 Analyze Another
+                                </button>
+                                <button id="shareBtn" class="back-btn flex-1 py-3 px-6 rounded-xl text-white font-semibold text-base transition-all">
+                                    📤 Share Results
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs and App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-auth.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBPQKIv9hyVZRRwXm-D4w3J_WYblGl0eSg",
+            authDomain: "farmer-app-c93e9.firebaseapp.com",
+            projectId: "farmer-app-c93e9",
+            storageBucket: "farmer-app-c93e9.firebasestorage.app",
+            messagingSenderId: "25818831885",
+            appId: "1:25818831885:web:9f2e961f3d35b37002c944",
+            measurementId: "G-HJNMYGF6ZJ"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // UI elements
+        const uploadPage = document.getElementById('uploadPage');
+        const resultsPage = document.getElementById('resultsPage');
+        const signOutBtn = document.getElementById('signOutBtn');
+        const userInfo = document.getElementById('userInfo');
+        const userEmailSpan = document.getElementById('userEmail');
+
+        // Auth state listener: check if user is logged in and handle UI
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in. Update UI and handle tokens.
+                signOutBtn.classList.remove('hidden');
+                userEmailSpan.textContent = user.email || 'Guest';
+                if (window.location.pathname === '/login') {
+                    window.location.href = '/'; // Redirect from login page
+                }
+            } else {
+                // User is signed out. Hide UI and redirect to login page.
+                signOutBtn.classList.add('hidden');
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
+            }
+        });
+
+        // Sign Out function
+        signOutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                console.log('User signed out.');
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Sign out error:', error);
+            }
+        });
+
+
+        // Create animated background particles
+        function createParticles() {
+            const container = document.querySelector('.bg-particles');
+            const particleCount = window.innerWidth < 640 ? 10 : 20;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.width = Math.random() * 6 + 4 + 'px';
+                particle.style.height = particle.style.width;
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = Math.random() * 4 + 4 + 's';
+                container.appendChild(particle);
+            }
+        }
+
+        // Initialize particles
+        createParticles();
+
+        // Drag and drop handlers
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('image_file').files = files;
+                previewImage();
+            }
+        }
+
+        // Enhanced image preview function
+        function previewImage() {
+            const fileInput = document.getElementById('image_file');
+            const uploadArea = document.getElementById('uploadArea');
+            const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+            const imageContainer = document.getElementById('imageContainer');
+            const uploadedImage = document.getElementById('uploadedImage');
+            const imageFileName = document.getElementById('imageFileName');
+
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImage.src = e.target.result;
+                    imageFileName.textContent = file.name;
+                    
+                    // Switch to image preview mode
+                    uploadPlaceholder.classList.add('hidden');
+                    imageContainer.classList.remove('hidden');
+                    uploadArea.classList.add('has-image');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Reset to placeholder mode
+                uploadPlaceholder.classList.remove('hidden');
+                imageContainer.classList.add('hidden');
+                uploadArea.classList.remove('has-image');
+            }
+        }
+
+        // Page navigation functions
+        function showResultsPage() {
+            const uploadPage = document.getElementById('uploadPage');
+            const resultsPage = document.getElementById('resultsPage');
+            
+            uploadPage.classList.add('page-exit');
+            resultsPage.classList.remove('hidden');
+            resultsPage.classList.add('page-enter');
+            
+            setTimeout(() => {
+                uploadPage.classList.add('hidden');
+            }, 600);
+        }
+
+        function showUploadPage() {
+            const uploadPage = document.getElementById('uploadPage');
+            const resultsPage = document.getElementById('resultsPage');
+            
+            resultsPage.classList.add('page-exit');
+            uploadPage.classList.remove('hidden');
+            uploadPage.classList.add('page-enter');
+            
+            setTimeout(() => {
+                resultsPage.classList.add('hidden');
+                resultsPage.classList.remove('page-exit');
+                uploadPage.classList.remove('page-exit');
+            }, 600);
+        }
+
+        // Enhanced form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('image_file');
+            if (!fileInput.files.length) {
+                showNotification('Please select an image file to upload.', 'error');
+                return;
+            }
+
+            const predictBtn = document.getElementById('predictBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+
+            // Show loading state
+            predictBtn.disabled = true;
+            btnText.classList.add('hidden');
+            btnSpinner.classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const user = auth.currentUser;
+            if (!user) {
+                showNotification('You must be logged in to make a prediction.', 'error');
+                predictBtn.disabled = false;
+                btnText.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
+                return;
+            }
+
+            // Get the ID token for backend authentication
+            const token = await user.getIdToken();
+
+            try {
+                // Actual API call to the secured endpoint
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Copy image to results
+                    const uploadedImage = document.getElementById('uploadedImage');
+                    const resultImage = document.getElementById('resultImage');
+                    resultImage.src = uploadedImage.src;
+                    
+                    // Update results
+                    document.getElementById('predicted_class').textContent = `🌿 ${result.prediction}`;
+                    const confidence = parseFloat(result.confidence);
+                    document.getElementById('confidence').textContent = (confidence * 100).toFixed(1) + '%';
+                    
+                    // Show results page
+                    showResultsPage();
+                    
+                    // Animate confidence bar after page transition
+                    setTimeout(() => {
+                        const confidenceBar = document.getElementById('confidenceBar');
+                        confidenceBar.style.width = (confidence * 100) + '%';
+                    }, 1000);
+
+                    showNotification('Prediction successful!', 'success');
+                } else {
+                    showNotification(`Error: ${result.detail || result.error}`, 'error');
+                }
+            } catch (error) {
+                showNotification('Connection error. Please try again.', 'error');
+                console.error('Error:', error);
+            } finally {
+                // Reset button state
+                predictBtn.disabled = false;
+                btnText.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
+            }
+        });
+
+        // Back button event listener
+        document.getElementById('backBtn').addEventListener('click', showUploadPage);
+
+        // Analyze again button
+        document.getElementById('analyzeAgainBtn').addEventListener('click', function() {
+            // Reset form
+            document.getElementById('image_file').value = '';
+            previewImage();
+            showUploadPage();
+        });
+
+        // Share button (placeholder)
+        document.getElementById('shareBtn').addEventListener('click', function() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Plant Disease Analysis Results',
+                    text: `My plant analysis: ${document.getElementById('predicted_class').textContent}`,
+                });
+            } else {
+                showNotification('Results copied to clipboard!', 'success');
+            }
+        });
+
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-6 right-6 z-50 p-4 rounded-2xl backdrop-blur-sm transform transition-all duration-500 translate-x-full max-w-sm ${
+                type === 'error' 
+                    ? 'bg-red-500/90 text-white' 
+                    : type === 'success'
+                    ? 'bg-emerald-500/90 text-white'
+                    : 'bg-blue-500/90 text-white'
+            }`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            // Animate in
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+
+            // Auto remove
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 500);
+            }, 4000);
+        }
+
+        // Handle window resize for particles
+        window.addEventListener('resize', function() {
+            const particles = document.querySelectorAll('.particle');
+            particles.forEach(particle => particle.remove());
+            createParticles();
+        });
+
+        // Add touch support for mobile
+        let touchStartY = 0;
+        document.addEventListener('touchstart', function(e) {
+            touchStartY = e.touches[0].clientY;
+        });
+
+        document.addEventListener('touchmove', function(e) {
+            // Prevent bounce effect on iOS
+            if (document.body.scrollTop === 0 && e.touches[0].clientY > touchStartY) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        window.previewImage = previewImage;
+
+    </script>
+</body>
+</html>
