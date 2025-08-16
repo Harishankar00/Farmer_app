@@ -198,7 +198,6 @@
                 // User is signed in, fetch their history
                 try {
                     const token = await user.getIdToken();
-                    // ✅ FIX: Change the URL to the new API endpoint
                     const response = await fetch('/api/history', {
                         method: 'GET',
                         headers: {
@@ -243,6 +242,8 @@
                                 <th>Timestamp</th>
                                 <th>Prediction</th>
                                 <th>Confidence</th>
+                                <th>Predicted Yield</th>
+                                <th>Value</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -251,14 +252,18 @@
             history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
             history.forEach(item => {
-                // ✅ FIX: The backend now sends an ISO string, so we can use it directly
                 const date = new Date(item.timestamp).toLocaleString();
                 const confidence = (item.confidence * 100).toFixed(2) + '%';
+                const predictedYield = parseFloat(item.predicted_yield_kg_per_acre).toFixed(2) + ' kg/acre';
+                const totalValue = `₹ ${parseFloat(item.total_harvest_value).toFixed(2)}`;
+
                 tableHTML += `
                     <tr>
                         <td>${date}</td>
                         <td>${item.prediction}</td>
                         <td>${confidence}</td>
+                        <td>${predictedYield}</td>
+                        <td>${totalValue}</td>
                     </tr>
                 `;
             });

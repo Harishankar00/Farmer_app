@@ -3,3 +3,5 @@ fine_tuned_model
 plant_disease_model
 firebase-adminsdk.json
 __pycache__
+confidential.txt
+.env

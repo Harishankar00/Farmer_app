@@ -296,6 +296,26 @@
             hyphens: auto;
             line-height: 1.4;
         }
+        
+        .recommendation-list {
+            list-style: none;
+            padding-left: 0;
+            margin-top: 0.5rem;
+        }
+        
+        .recommendation-list li {
+            margin-bottom: 0.5rem;
+            position: relative;
+            padding-left: 1.5rem;
+        }
+        
+        .recommendation-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -422,9 +442,22 @@
                                     <p class="text-white/80 text-sm font-light mb-3">PREDICTED YIELD</p>
                                     <p id="predictedYield" class="text-white text-lg sm:text-xl font-bold text-glow">...</p>
                                 </div>
+                                <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm">
+                                    <p class="text-white/80 text-sm font-light mb-3">CURRENT MARKET PRICE</p>
+                                    <p id="marketPrice" class="text-white text-lg sm:text-xl font-bold text-glow">...</p>
+                                </div>
+                                <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm">
+                                    <p class="text-white/80 text-sm font-light mb-3">ESTIMATED HARVEST VALUE</p>
+                                    <p id="totalValue" class="text-white text-lg sm:text-xl font-bold text-glow">...</p>
+                                </div>
                                 <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm md:col-span-2">
-                                    <p class="text-white/80 text-sm font-light mb-3">RECOMMENDATIONS</p>
-                                    <p id="recommendations" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
+                                    <p class="text-white/80 text-sm font-light mb-3">AI-POWERED RECOMMENDATIONS</p>
+                                    <h4 class="text-white/80 text-sm font-semibold mt-4">Harvest Recommendations</h4>
+                                    <p id="harvestRecommendations" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
+                                    <h4 class="text-white/80 text-sm font-semibold mt-4">Selling Strategies</h4>
+                                    <p id="sellingStrategies" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
+                                    <h4 class="text-white/80 text-sm font-semibold mt-4">Bargaining Tips</h4>
+                                    <p id="bargainingTips" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
                                 </div>
                             </div>
 
@@ -470,18 +503,16 @@
         const signOutBtn = document.getElementById('signOutBtn');
         const userInfo = document.getElementById('userInfo');
         const userEmailSpan = document.getElementById('userEmail');
-        
+
         // Auth state listener: check if user is logged in and handle UI
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // User is signed in. Update UI and handle tokens.
                 signOutBtn.classList.remove('hidden');
                 userEmailSpan.textContent = user.email || 'Guest';
                 if (window.location.pathname === '/login') {
-                    window.location.href = '/'; // Redirect from login page
+                    window.location.href = '/';
                 }
             } else {
-                // User is signed out. Hide UI and redirect to login page.
                 signOutBtn.classList.add('hidden');
                 if (window.location.pathname !== '/login') {
                     window.location.href = '/login';
@@ -499,7 +530,6 @@
                 console.error('Sign out error:', error);
             }
         });
-
 
         // Create animated background particles
         function createParticles() {
@@ -519,10 +549,8 @@
             }
         }
 
-        // Initialize particles
         createParticles();
 
-        // Drag and drop handlers
         function handleDragOver(e) {
             e.preventDefault();
             e.currentTarget.classList.add('dragover');
@@ -542,7 +570,6 @@
             }
         }
 
-        // Enhanced image preview function
         function previewImage() {
             const fileInput = document.getElementById('image_file');
             const uploadArea = document.getElementById('uploadArea');
@@ -559,21 +586,18 @@
                     uploadedImage.src = e.target.result;
                     imageFileName.textContent = file.name;
                     
-                    // Switch to image preview mode
                     uploadPlaceholder.classList.add('hidden');
                     imageContainer.classList.remove('hidden');
                     uploadArea.classList.add('has-image');
                 };
                 reader.readAsDataURL(file);
             } else {
-                // Reset to placeholder mode
                 uploadPlaceholder.classList.remove('hidden');
                 imageContainer.classList.add('hidden');
                 uploadArea.classList.remove('has-image');
             }
         }
 
-        // Page navigation functions
         function showResultsPage() {
             const uploadPage = document.getElementById('uploadPage');
             const resultsPage = document.getElementById('resultsPage');
@@ -602,7 +626,6 @@
             }, 600);
         }
 
-        // Enhanced form submission
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -616,7 +639,6 @@
             const btnText = document.getElementById('btnText');
             const btnSpinner = document.getElementById('btnSpinner');
 
-            // Show loading state
             predictBtn.disabled = true;
             btnText.classList.add('hidden');
             btnSpinner.classList.remove('hidden');
@@ -633,11 +655,9 @@
                 return;
             }
 
-            // Get the ID token for backend authentication
             const token = await user.getIdToken();
 
             try {
-                // Actual API call to the secured endpoint
                 const response = await fetch('/predict', {
                     method: 'POST',
                     headers: {
@@ -649,23 +669,36 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    // Copy image to results
                     const uploadedImage = document.getElementById('uploadedImage');
                     const resultImage = document.getElementById('resultImage');
                     resultImage.src = uploadedImage.src;
                     
-                    // Update results with new fields
                     document.getElementById('diagnosisTitle').textContent = `🌿 ${result.plant_name} - ${result.disease_name}`;
                     document.getElementById('impact').textContent = result.impact;
                     const confidence = parseFloat(result.confidence);
                     document.getElementById('confidence').textContent = (confidence * 100).toFixed(1) + '%';
-                    document.getElementById('predictedYield').textContent = `${result.predicted_yield_kg_per_acre} kg/acre`;
-                    document.getElementById('recommendations').textContent = result.recommendations;
                     
-                    // Show results page
+                    document.getElementById('predictedYield').textContent = `${result.predicted_yield_kg_per_acre} kg/acre`;
+                    document.getElementById('marketPrice').textContent = `₹ ${result.market_price_per_kg} / kg`;
+                    document.getElementById('totalValue').textContent = `₹ ${result.total_harvest_value}`;
+
+                    // Handle structured AI recommendations
+                    if (result.recommendations && typeof result.recommendations === 'object') {
+                        document.getElementById('harvestRecommendations').textContent = result.recommendations.harvest_recommendations;
+                        document.getElementById('sellingStrategies').textContent = result.recommendations.selling_strategies;
+                        document.getElementById('bargainingTips').textContent = result.recommendations.bargaining_tips;
+                        // Show the structured section and hide the fallback
+                        document.getElementById('structuredRecommendations').classList.remove('hidden');
+                        document.getElementById('recommendationFallback').classList.add('hidden');
+                    } else {
+                        // Display fallback or error message
+                        document.getElementById('recommendationFallback').textContent = result.recommendations || 'No recommendations available.';
+                        document.getElementById('structuredRecommendations').classList.add('hidden');
+                        document.getElementById('recommendationFallback').classList.remove('hidden');
+                    }
+                    
                     showResultsPage();
                     
-                    // Animate confidence bar after page transition
                     setTimeout(() => {
                         const confidenceBar = document.getElementById('confidenceBar');
                         confidenceBar.style.width = (confidence * 100) + '%';
@@ -679,37 +712,29 @@
                 showNotification('Connection error. Please try again.', 'error');
                 console.error('Error:', error);
             } finally {
-                // Reset button state
                 predictBtn.disabled = false;
                 btnText.classList.remove('hidden');
                 btnSpinner.classList.add('hidden');
             }
         });
 
-        // Back button event listener
         document.getElementById('backBtn').addEventListener('click', showUploadPage);
-
-        // Analyze again button
         document.getElementById('analyzeAgainBtn').addEventListener('click', function() {
-            // Reset form
             document.getElementById('image_file').value = '';
             previewImage();
             showUploadPage();
         });
-
-        // Share button (placeholder)
         document.getElementById('shareBtn').addEventListener('click', function() {
             if (navigator.share) {
                 navigator.share({
                     title: 'Plant Disease Analysis Results',
-                    text: `My plant analysis: ${document.getElementById('predicted_class').textContent}`,
+                    text: `My plant analysis: ${document.getElementById('diagnosisTitle').textContent}`,
                 });
             } else {
                 showNotification('Results copied to clipboard!', 'success');
             }
         });
 
-        // Notification system
         function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
             notification.className = `fixed top-6 right-6 z-50 p-4 rounded-2xl backdrop-blur-sm transform transition-all duration-500 translate-x-full max-w-sm ${
@@ -722,12 +747,10 @@
             notification.textContent = message;
             document.body.appendChild(notification);
 
-            // Animate in
             setTimeout(() => {
                 notification.style.transform = 'translateX(0)';
             }, 100);
 
-            // Auto remove
             setTimeout(() => {
                 notification.style.transform = 'translateX(100%)';
                 setTimeout(() => {
@@ -738,21 +761,18 @@
             }, 4000);
         }
 
-        // Handle window resize for particles
         window.addEventListener('resize', function() {
             const particles = document.querySelectorAll('.particle');
             particles.forEach(particle => particle.remove());
             createParticles();
         });
 
-        // Add touch support for mobile
         let touchStartY = 0;
         document.addEventListener('touchstart', function(e) {
             touchStartY = e.touches[0].clientY;
         });
 
         document.addEventListener('touchmove', function(e) {
-            // Prevent bounce effect on iOS
             if (document.body.scrollTop === 0 && e.touches[0].clientY > touchStartY) {
                 e.preventDefault();
             }
