@@ -450,7 +450,7 @@
                                     <p class="text-white/80 text-sm font-light mb-3">ESTIMATED HARVEST VALUE</p>
                                     <p id="totalValue" class="text-white text-lg sm:text-xl font-bold text-glow">...</p>
                                 </div>
-                                <div class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm md:col-span-2">
+                                <div id="structuredRecommendations" class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm md:col-span-2 hidden">
                                     <p class="text-white/80 text-sm font-light mb-3">AI-POWERED RECOMMENDATIONS</p>
                                     <h4 class="text-white/80 text-sm font-semibold mt-4">Harvest Recommendations</h4>
                                     <p id="harvestRecommendations" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
@@ -458,6 +458,10 @@
                                     <p id="sellingStrategies" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
                                     <h4 class="text-white/80 text-sm font-semibold mt-4">Bargaining Tips</h4>
                                     <p id="bargainingTips" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
+                                </div>
+                                <div id="recommendationFallback" class="bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-sm md:col-span-2 hidden">
+                                    <p class="text-white/80 text-sm font-light mb-3">RECOMMENDATIONS</p>
+                                    <p class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
                                 </div>
                             </div>
 
@@ -557,6 +561,7 @@
         }
 
         function handleDragLeave(e) {
+            e.preventDefault();
             e.currentTarget.classList.remove('dragover');
         }
 

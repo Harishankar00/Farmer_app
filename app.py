@@ -14,9 +14,9 @@ from fastapi import FastAPI, File, UploadFile, Request, Depends, HTTPException, 
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import httpx 
-from dotenv import load_dotenv 
-import json 
+import httpx
+from dotenv import load_dotenv
+import json
 import random
 
 # Load environment variables from .env file
@@ -99,10 +99,7 @@ def preprocess_image(image_bytes: bytes):
     img_array = img_array / 255.0
     return img_array
 
-# ✅ FIXED: Expanded get_market_price to handle more crops and a better default
 def get_market_price(plant_name: str) -> float:
-    """Simulates a real-time API call for market price."""
-    # This is a mock function. In a real app, you would call an external API here.
     prices = {
         'Apple': (80, 120),
         'Tomato': (20, 35),
@@ -120,7 +117,6 @@ def get_market_price(plant_name: str) -> float:
         'Strawberry': (180, 280),
     }
     
-    # Get the price range for the plant, or use a default if not found
     price_range = prices.get(plant_name, (10, 50))
     return random.uniform(price_range[0], price_range[1])
 
@@ -288,8 +284,6 @@ async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_c
         "disease_name": prediction_details['disease_name'],
         "impact": prediction_details['impact']
     }
-
-# ----------------------- Run App ----------------------- #
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
