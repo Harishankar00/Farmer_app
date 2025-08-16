@@ -159,6 +159,15 @@ async def get_ai_recommendations(plant_name: str, disease_name: str, impact: str
             response.raise_for_status()
             result = response.json()
             
+            # ✅ NEW: Print token usage information
+            if 'usageMetadata' in result:
+                usage = result['usageMetadata']
+                print("--- Token Usage Report ---")
+                print(f"Prompt tokens used: {usage.get('promptTokenCount', 0)}")
+                print(f"Response tokens generated: {usage.get('candidatesTokenCount', 0)}")
+                print(f"Total tokens used: {usage.get('totalTokenCount', 0)}")
+                print("--------------------------")
+            
             if 'candidates' in result and result['candidates']:
                 return json.loads(result['candidates'][0]['content']['parts'][0]['text'])
             else:
@@ -168,7 +177,6 @@ async def get_ai_recommendations(plant_name: str, disease_name: str, impact: str
         return {"error": "Failed to get AI recommendations due to a connection error."}
     except json.JSONDecodeError as e:
         print(f"❌ JSON Decode Error from Gemini API: {e}")
-        print(f"Received text: {result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text')}")
         return {"error": "AI generated an invalid JSON response."}
     except Exception as e:
         print(f"❌ Unexpected error calling Gemini API: {e}")
@@ -284,6 +292,8 @@ async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_c
         "disease_name": prediction_details['disease_name'],
         "impact": prediction_details['impact']
     }
+
+# ----------------------- Run App ----------------------- #
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
