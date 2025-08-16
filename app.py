@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Request, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import uvicorn
@@ -12,7 +12,7 @@ import firebase_admin
 from firebase_admin import credentials, auth
 from google.cloud import firestore
 from google.oauth2 import service_account
-from datetime import datetime  # ✅ use this for timestamp
+from datetime import datetime
 
 # ----------------------- Firebase Setup ----------------------- #
 
@@ -102,6 +102,10 @@ async def serve_home(request: Request):
 async def serve_login(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
+@app.get("/history", response_class=HTMLResponse)
+async def serve_history(request: Request):
+    return templates.TemplateResponse("history.html", {"request": request})
+
 @app.post("/predict")
 async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     if not model:
@@ -120,7 +124,6 @@ async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_c
 
     print(f"🔍 Prediction by {user_uid}: {predicted_class_name} ({confidence:.2f})")
 
-    # Save prediction inside Firestore (append into same history array)
     if db:
         try:
             user_doc_ref = db.collection("predictions").document(user_uid)
@@ -129,7 +132,7 @@ async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_c
                 "history": firestore.ArrayUnion([{
                     "prediction": predicted_class_name,
                     "confidence": confidence,
-                    "timestamp": datetime.utcnow()  # ✅ FIXED: use Python datetime
+                    "timestamp": datetime.utcnow()
                 }])
             }, merge=True)
 
@@ -141,6 +144,33 @@ async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_c
         "prediction": predicted_class_name,
         "confidence": f"{confidence:.2f}"
     }
+
+@app.get("/api/history")
+async def get_prediction_history(user: dict = Depends(get_current_user)):
+    if not db:
+        raise HTTPException(status_code=500, detail="Database not initialized.")
+
+    user_uid = user.get("uid")
+    
+    try:
+        doc_ref = db.collection("predictions").document(user_uid)
+        doc = doc_ref.get()
+
+        if doc.exists:
+            history_data = doc.to_dict().get("history", [])
+            
+            # ✅ FIXED: Convert Firestore timestamp to a JSON-friendly string
+            for item in history_data:
+                if 'timestamp' in item and isinstance(item['timestamp'], datetime):
+                    item['timestamp'] = item['timestamp'].isoformat()
+
+            return JSONResponse(content={"history": history_data})
+        else:
+            return JSONResponse(content={"history": []})
+    except Exception as e:
+        print(f"❌ Error fetching history for user {user_uid}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve history.")
+
 
 # ----------------------- Run App ----------------------- #
 
