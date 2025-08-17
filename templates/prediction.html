@@ -20,24 +20,19 @@
         .glass-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
         .upload-area { background: rgba(255, 255, 255, 0.08); border: 2px dashed rgba(255, 255, 255, 0.3); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; min-height: 200px; }
         .upload-area:hover { border-color: rgba(103, 126, 234, 0.6); background: rgba(255, 255, 255, 0.12); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15); }
-        .upload-area.dragover { border-color: #10b981; background: rgba(16, 185, 129, 0.1); transform: scale(1.02); }
-        .upload-area.has-image { border: 2px solid rgba(103, 126, 234, 0.6); background: rgba(255, 255, 255, 0.05); }
         .predict-btn { background: linear-gradient(135deg, #667eea, #764ba2); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
-        .predict-btn::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent); transition: left 0.6s; }
         .predict-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6); }
-        .predict-btn:hover:not(:disabled)::before { left: 100%; }
-        .predict-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         .loading-spinner { border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 3px solid #fff; width: 20px; height: 20px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .page-enter { animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-        .page-exit { animation: slideOutDown 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-        @keyframes slideInUp { 0% { opacity: 0; transform: translateY(100vh); } 100% { opacity: 1; transform: translateY(0); } }
-        @keyframes slideOutDown { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(100vh); } }
+        .page-enter { animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        .page-exit { animation: fadeOut 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
         .image-preview { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); max-height: 300px; width: 100%; object-fit: cover; border-radius: 16px; }
         .confidence-bar { background: rgba(255, 255, 255, 0.2); border-radius: 10px; overflow: hidden; height: 12px; }
         .confidence-fill { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 10px; transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .text-glow { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
-        .results-page { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 50; overflow-y: auto; padding: 1rem; }
+        .results-page { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 50; overflow-y: auto; padding-top: 80px; /* Space for header */ }
         .back-btn { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease; }
         .back-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
     </style>
@@ -46,36 +41,21 @@
     <div class="bg-particles"></div>
 
     <!-- Header for user status -->
-    <header class="fixed top-0 left-0 w-full p-4 z-50 flex justify-between items-center text-white">
-        <div id="userInfo" class="flex items-center space-x-2">
-            <span class="text-sm font-semibold text-white/80">User: <span id="userEmail">Guest</span></span>
-        </div>
+    <header class="fixed top-0 left-0 w-full p-4 z-[60] flex justify-between items-center text-white">
+        <h2 id="pageTitle" class="text-xl sm:text-2xl font-bold text-white text-glow">🌿 Plant Disease Analysis</h2>
         <div class="flex items-center space-x-2">
-            <!-- NEW: Dashboard Button -->
-            <a href="/dashboard" class="back-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">
-                Dashboard
-            </a>
-            <a href="/history" class="back-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">
-                History
-            </a>
-            <button id="signOutBtn" class="back-btn px-4 py-2 rounded-xl text-sm font-medium transition-all hidden">
-                Sign Out
-            </button>
+            <a href="/dashboard" class="back-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">Dashboard</a>
+            <a href="/history" class="back-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">History</a>
+            <button id="signOutBtn" class="back-btn px-4 py-2 rounded-xl text-sm font-medium transition-all hidden">Sign Out</button>
         </div>
     </header>
 
     <!-- Main Upload Page -->
     <div id="uploadPage" class="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div class="glass-card p-6 sm:p-8 rounded-3xl w-full max-w-lg space-y-6 sm:space-y-8 text-center transform transition-all duration-1000">
-            <div class="space-y-4">
-                <h1 class="text-3xl sm:text-4xl font-bold text-white text-glow">
-                    🌿 Plant Disease Analysis
-                </h1>
-                <p class="text-white/80 text-base sm:text-lg font-light px-4">
-                    Upload an image of a plant leaf to get an instant AI diagnosis
-                </p>
-            </div>
-
+        <div class="glass-card p-6 sm:p-8 rounded-3xl w-full max-w-lg space-y-6 sm:space-y-8 text-center">
+            <p class="text-white/80 text-base sm:text-lg font-light px-4">
+                Upload an image of a plant leaf to get an instant AI diagnosis
+            </p>
             <form id="uploadForm" class="space-y-6">
                 <div>
                     <div id="uploadArea" class="upload-area flex justify-center items-center rounded-2xl cursor-pointer" 
@@ -83,21 +63,16 @@
                          ondragover="event.preventDefault(); event.currentTarget.classList.add('dragover');"
                          ondragleave="event.currentTarget.classList.remove('dragover');"
                          ondrop="handleDrop(event)">
-                        
                         <div id="uploadPlaceholder" class="space-y-4 text-center p-4">
                             <svg class="mx-auto h-12 sm:h-16 w-12 sm:w-16 text-white/70" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28m0 0l4 4m4-4V8m-4 12h4m-4 0a4 4 0 00-4 4v4m0 0l-3.172-3.172a4 4 0 00-5.656 0L28 28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
                             <div class="text-base sm:text-lg text-white/80"><span class="font-medium">Click to upload</span><p class="mt-1">or drag and drop</p></div>
-                            <p class="text-sm text-white/60 font-light">PNG, JPG, GIF up to 10MB</p>
                         </div>
-
                         <div id="imageContainer" class="hidden w-full p-4">
                             <img id="uploadedImage" src="" alt="Uploaded Image" class="image-preview mx-auto">
-                            <p id="imageFileName" class="text-white/80 text-sm mt-3 text-center font-medium"></p>
                         </div>
                     </div>
-                    <input id="image_file" name="file" type="file" class="hidden" onchange="previewImage()" accept="image/*" required>
+                    <input id="image_file" name="file" type="file" class="hidden" onchange="previewImage()" accept="image/*">
                 </div>
-                
                 <button type="submit" id="predictBtn" class="predict-btn w-full py-3 sm:py-4 px-6 rounded-xl text-white font-semibold text-base sm:text-lg">
                     <span id="btnText">✨ Analyze Plant</span>
                     <div id="btnSpinner" class="loading-spinner mx-auto hidden"></div>
@@ -107,46 +82,57 @@
     </div>
 
     <!-- Results Page (Full Screen) -->
-    <div id="resultsPage" class="results-page hidden">
-        <div class="min-h-screen flex flex-col">
-            <div class="flex items-center justify-between p-4 sm:p-6">
-                <!-- UPDATED: This button now goes back to the dashboard -->
-                <button id="backBtn" class="back-btn flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-medium">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                    <span>Dashboard</span>
-                </button>
-                <h2 class="text-xl sm:text-2xl font-bold text-white text-glow">🔍 Analysis Results</h2>
-                <div class="w-28"></div> <!-- Spacer for centering -->
+    <!-- FIX: Added flex items-center justify-center to center the content grid -->
+    <div id="resultsPage" class="results-page hidden p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+        <div class="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left Column: Image -->
+            <div class="lg:col-span-1 glass-card rounded-3xl p-6">
+                <h3 class="text-white/80 text-lg font-semibold mb-4">Analyzed Image</h3>
+                <img id="resultImage" src="" alt="Analyzed Image" class="w-full h-auto object-cover rounded-2xl shadow-2xl">
+                <div class="flex flex-col sm:flex-row gap-3 pt-6">
+                    <button id="analyzeAgainBtn" class="predict-btn flex-1 py-3 px-6 rounded-xl text-white font-semibold text-base">📸 Analyze Another</button>
+                </div>
             </div>
 
-            <div class="flex-1 flex items-center justify-center p-4">
-                <div class="glass-card rounded-3xl w-full max-w-4xl p-6 sm:p-8">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-center">
-                        <div class="order-2 lg:order-1">
-                            <div class="bg-white/10 p-4 sm:p-6 rounded-2xl"><h3 class="text-white/80 text-sm font-light mb-4 text-center">ANALYZED IMAGE</h3><img id="resultImage" src="" alt="Analyzed Image" class="image-preview mx-auto shadow-2xl"></div>
-                        </div>
-                        <div class="order-1 lg:order-2 space-y-6">
-                            <div class="bg-white/10 p-4 sm:p-6 rounded-2xl"><p class="text-white/80 text-sm font-light mb-3">DIAGNOSIS</p><p id="diagnosisTitle" class="text-white text-lg sm:text-xl font-bold text-glow mb-2"></p><p id="impact" class="text-white/80 text-sm sm:text-base font-light"></p></div>
-                            <div class="bg-white/10 p-4 sm:p-6 rounded-2xl"><p class="text-white/80 text-sm font-light mb-4">CONFIDENCE LEVEL</p><div class="space-y-3"><div class="flex justify-between items-center"><span id="confidence" class="text-white font-bold text-lg sm:text-xl"></span><span class="text-white/60 text-sm">Accuracy</span></div><div class="confidence-bar"><div id="confidenceBar" class="confidence-fill" style="width: 0%"></div></div></div></div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white/10 p-4 sm:p-6 rounded-2xl"><p class="text-white/80 text-sm font-light mb-3">PREDICTED YIELD</p><p id="predictedYield" class="text-white text-lg sm:text-xl font-bold text-glow">...</p></div>
-                                <div class="bg-white/10 p-4 sm:p-6 rounded-2xl"><p class="text-white/80 text-sm font-light mb-3">CURRENT MARKET PRICE</p><p id="marketPrice" class="text-white text-lg sm:text-xl font-bold text-glow">...</p></div>
-                                <div class="bg-white/10 p-4 sm:p-6 rounded-2xl md:col-span-2"><p class="text-white/80 text-sm font-light mb-3">ESTIMATED HARVEST VALUE</p><p id="totalValue" class="text-white text-lg sm:text-xl font-bold text-glow">...</p></div>
-                                <div id="structuredRecommendations" class="bg-white/10 p-4 sm:p-6 rounded-2xl md:col-span-2 hidden">
-                                    <p class="text-white/80 text-sm font-light mb-3">AI-POWERED RECOMMENDATIONS</p>
-                                    <h4 class="text-white/80 text-sm font-semibold mt-4">Harvest Recommendations</h4><p id="harvestRecommendations" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
-                                    <h4 class="text-white/80 text-sm font-semibold mt-4">Selling Strategies</h4><p id="sellingStrategies" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
-                                    <h4 class="text-white/80 text-sm font-semibold mt-4">Bargaining Tips</h4><p id="bargainingTips" class="text-white text-sm sm:text-base font-medium leading-relaxed">...</p>
-                                </div>
-                            </div>
-                            <div class="flex flex-col sm:flex-row gap-3 pt-4">
-                                <button id="analyzeAgainBtn" class="predict-btn flex-1 py-3 px-6 rounded-xl text-white font-semibold text-base">📸 Analyze Another</button>
-                                <button id="shareBtn" class="back-btn flex-1 py-3 px-6 rounded-xl text-white font-semibold text-base">📤 Share Results</button>
-                            </div>
-                        </div>
+            <!-- Center Column: Diagnosis & Financials -->
+            <div class="lg:col-span-1 glass-card rounded-3xl p-6 flex flex-col space-y-6">
+                <div class="bg-white/10 p-6 rounded-2xl flex-1">
+                    <p class="text-white/80 text-sm font-light mb-2">DIAGNOSIS</p>
+                    <p id="diagnosisTitle" class="text-white text-2xl font-bold text-glow mb-2"></p>
+                    <p id="impact" class="text-white/80 text-base font-light"></p>
+                </div>
+                <div class="bg-white/10 p-6 rounded-2xl">
+                    <p class="text-white/80 text-sm font-light mb-4">CONFIDENCE LEVEL</p>
+                    <div class="flex justify-between items-center mb-3"><span id="confidence" class="text-white font-bold text-2xl"></span><span class="text-white/60 text-sm">Accuracy</span></div>
+                    <div class="confidence-bar"><div id="confidenceBar" class="confidence-fill" style="width: 0%"></div></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white/10 p-4 rounded-2xl"><p class="text-white/80 text-sm font-light mb-2">PREDICTED YIELD</p><p id="predictedYield" class="text-white text-xl font-bold">...</p></div>
+                    <div class="bg-white/10 p-4 rounded-2xl"><p class="text-white/80 text-sm font-light mb-2">MARKET PRICE</p><p id="marketPrice" class="text-white text-xl font-bold">... <sup class="text-xs font-semibold text-purple-300">AI Est.</sup></p></div>
+                </div>
+                 <div class="bg-white/10 p-6 rounded-2xl"><p class="text-white/80 text-sm font-light mb-2">ESTIMATED HARVEST VALUE</p><p id="totalValue" class="text-white text-3xl font-bold text-glow">...</p></div>
+            </div>
+
+            <!-- Right Column: Recommendations -->
+            <div class="lg:col-span-1 glass-card rounded-3xl p-6 flex flex-col">
+                 <h3 class="text-white/80 text-lg font-semibold mb-4">AI-Powered Recommendations</h3>
+                 <div id="structuredRecommendations" class="bg-white/10 p-6 rounded-2xl flex-1 space-y-4 overflow-y-auto">
+                    <div>
+                        <h4 class="text-white text-md font-semibold">Harvest Recommendations</h4>
+                        <p id="harvestRecommendations" class="text-white/80 text-sm font-light leading-relaxed mt-1">...</p>
+                    </div>
+                     <div>
+                        <h4 class="text-white text-md font-semibold">Selling Strategies</h4>
+                        <p id="sellingStrategies" class="text-white/80 text-sm font-light leading-relaxed mt-1">...</p>
+                    </div>
+                     <div>
+                        <h4 class="text-white text-md font-semibold">Bargaining Tips</h4>
+                        <p id="bargainingTips" class="text-white/80 text-sm font-light leading-relaxed mt-1">...</p>
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -167,32 +153,25 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
+        const pageTitle = document.getElementById('pageTitle');
         const signOutBtn = document.getElementById('signOutBtn');
-        const userEmailSpan = document.getElementById('userEmail');
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 signOutBtn.classList.remove('hidden');
-                userEmailSpan.textContent = user.email || 'Guest User';
             } else {
-                // If user is not logged in, boot them back to the login page.
                 window.location.href = '/login';
             }
         });
 
         signOutBtn.addEventListener('click', async () => {
-            try {
-                await signOut(auth);
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Sign out error:', error);
-            }
+            try { await signOut(auth); window.location.href = '/login'; } catch (error) { console.error('Sign out error:', error); }
         });
 
         function createParticles() {
             const container = document.querySelector('.bg-particles');
             if (container.children.length > 0) return;
-            const particleCount = window.innerWidth < 640 ? 10 : 20;
+            const particleCount = 20;
             for (let i = 0; i < particleCount; i++) { const p = document.createElement('div'); p.className = 'particle'; p.style.cssText = `left:${Math.random()*100}%; top:${Math.random()*100}%; width:${Math.random()*6+4}px; height:${p.style.width}; animation-delay:${Math.random()*6}s; animation-duration:${Math.random()*4+4}s;`; container.appendChild(p); }
         }
         createParticles();
@@ -200,9 +179,8 @@
         function handleDrop(e) {
             e.preventDefault();
             e.currentTarget.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                document.getElementById('image_file').files = files;
+            if (e.dataTransfer.files.length > 0) {
+                document.getElementById('image_file').files = e.dataTransfer.files;
                 previewImage();
             }
         }
@@ -210,37 +188,30 @@
 
         function previewImage() {
             const fileInput = document.getElementById('image_file');
-            const uploadArea = document.getElementById('uploadArea');
             const uploadPlaceholder = document.getElementById('uploadPlaceholder');
             const imageContainer = document.getElementById('imageContainer');
             const uploadedImage = document.getElementById('uploadedImage');
-            const imageFileName = document.getElementById('imageFileName');
             if (fileInput.files.length > 0) {
-                const file = fileInput.files[0];
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = (e) => {
                     uploadedImage.src = e.target.result;
-                    imageFileName.textContent = file.name;
                     uploadPlaceholder.classList.add('hidden');
                     imageContainer.classList.remove('hidden');
-                    uploadArea.classList.add('has-image');
                 };
-                reader.readAsDataURL(file);
-            } else {
-                uploadPlaceholder.classList.remove('hidden');
-                imageContainer.classList.add('hidden');
-                uploadArea.classList.remove('has-image');
+                reader.readAsDataURL(fileInput.files[0]);
             }
         }
         window.previewImage = previewImage;
 
         function showResultsPage() {
+            pageTitle.textContent = '🔍 Analysis Results';
             document.getElementById('uploadPage').classList.add('page-exit', 'hidden');
             document.getElementById('resultsPage').classList.remove('hidden');
             document.getElementById('resultsPage').classList.add('page-enter');
         }
 
         function showUploadPage() {
+            pageTitle.textContent = '🌿 Plant Disease Analysis';
             document.getElementById('resultsPage').classList.add('page-exit', 'hidden');
             document.getElementById('uploadPage').classList.remove('hidden', 'page-exit');
             document.getElementById('uploadPage').classList.add('page-enter');
@@ -249,7 +220,10 @@
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const fileInput = document.getElementById('image_file');
-            if (!fileInput.files.length) return;
+            if (!fileInput.files.length) {
+                alert("Please select an image to analyze.");
+                return;
+            }
 
             const predictBtn = document.getElementById('predictBtn');
             const btnText = document.getElementById('btnText');
@@ -280,13 +254,15 @@
                     const confidence = parseFloat(result.confidence);
                     document.getElementById('confidence').textContent = (confidence * 100).toFixed(1) + '%';
                     document.getElementById('predictedYield').textContent = `${result.predicted_yield_kg_per_acre} kg/acre`;
-                    document.getElementById('marketPrice').textContent = `₹ ${result.market_price_per_kg} / kg`;
+                    
+                    const marketPriceEl = document.getElementById('marketPrice');
+                    marketPriceEl.innerHTML = `₹ ${result.market_price_per_kg} <sup class="text-xs font-semibold text-purple-300">AI Est.</sup>`;
+
                     document.getElementById('totalValue').textContent = `₹ ${result.total_harvest_value}`;
                     if (result.recommendations && typeof result.recommendations === 'object') {
                         document.getElementById('harvestRecommendations').textContent = result.recommendations.harvest_recommendations;
                         document.getElementById('sellingStrategies').textContent = result.recommendations.selling_strategies;
                         document.getElementById('bargainingTips').textContent = result.recommendations.bargaining_tips;
-                        document.getElementById('structuredRecommendations').classList.remove('hidden');
                     }
                     showResultsPage();
                     setTimeout(() => { document.getElementById('confidenceBar').style.width = (confidence * 100) + '%'; }, 500);
@@ -302,26 +278,9 @@
             }
         });
 
-        // UPDATED: This button now redirects to the dashboard
-        document.getElementById('backBtn').addEventListener('click', () => {
-            window.location.href = '/dashboard';
-        });
-        
         document.getElementById('analyzeAgainBtn').addEventListener('click', function() {
             document.getElementById('image_file').value = '';
-            previewImage();
             showUploadPage();
-        });
-
-        document.getElementById('shareBtn').addEventListener('click', function() {
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Plant Disease Analysis Results',
-                    text: `My plant analysis: ${document.getElementById('diagnosisTitle').textContent}`,
-                });
-            } else {
-                alert('Share feature not supported on this browser.');
-            }
         });
     </script>
 </body>

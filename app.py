@@ -96,16 +96,55 @@ async def load_model_and_data():
     except Exception as e:
         print(f"❌ CRITICAL ERROR during startup: {e}")
 
-# --- Helper Functions (Unchanged) ---
+# --- Helper Functions ---
 def preprocess_image(image_bytes: bytes):
     img = Image.open(io.BytesIO(image_bytes)).resize((256, 256))
     img_array = np.expand_dims(np.array(img), axis=0) / 255.0
     return img_array
 
-def get_market_price(plant_name: str) -> float:
-    prices = {'Apple': (80, 120), 'Tomato': (20, 35), 'Potato': (15, 25), 'Grape': (50, 90)}
-    price_range = prices.get(plant_name, (10, 50))
-    return random.uniform(price_range[0], price_range[1])
+async def get_ai_market_price_estimate(plant_name: str, location_str: str) -> float:
+    """
+    NEW: This function replaces the old random price generator.
+    It asks the Gemini AI for a realistic market price based on the crop and location.
+    """
+    if not GEMINI_API_KEY:
+        print("⚠️ Gemini API key missing, falling back to random price.")
+        return random.uniform(10, 100) # Fallback
+
+    prompt = (
+        f"You are an agricultural market analyst. Based on current market trends, "
+        f"what is a single, realistic, estimated market price per kilogram in INR for '{plant_name}' "
+        f"in the region of '{location_str}'? "
+        f"Your response MUST be a JSON object with a single key 'estimated_price_inr' and a numerical value. "
+        f"Example: {{\"estimated_price_inr\": 35.50}}"
+    )
+    
+    payload = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": {"responseMimeType": "application/json"}}
+    apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(apiUrl, json=payload, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+
+            # --- NEW: TOKEN USAGE REPORTING ---
+            if 'usageMetadata' in result:
+                usage = result['usageMetadata']
+                print("\n--- 🧠 AI Price Estimator Token Report ---")
+                print(f"   Prompt Tokens: {usage.get('promptTokenCount', 'N/A')}")
+                print(f"   Response Tokens: {usage.get('candidatesTokenCount', 'N/A')}")
+                print(f"   TOTAL TOKENS USED: {usage.get('totalTokenCount', 'N/A')}")
+                print("-----------------------------------------\n")
+            # --- END OF NEW BLOCK ---
+
+            price_data = json.loads(result['candidates'][0]['content']['parts'][0]['text'])
+            price = float(price_data.get("estimated_price_inr", random.uniform(10, 100)))
+            print(f"🧠 AI Price Estimate for {plant_name} in {location_str}: ₹{price:.2f}")
+            return price
+    except Exception as e:
+        print(f"❌ Error getting AI price estimate: {e}. Falling back to random price.")
+        return random.uniform(10, 100) # Fallback on any error
 
 async def get_ai_recommendations(plant_name: str, disease_name: str, impact: str) -> dict:
     if not GEMINI_API_KEY: return {"error": "API key is missing."}
@@ -116,9 +155,21 @@ async def get_ai_recommendations(plant_name: str, disease_name: str, impact: str
         async with httpx.AsyncClient() as client:
             response = await client.post(apiUrl, json=payload, timeout=30)
             response.raise_for_status()
-            return json.loads(response.json()['candidates'][0]['content']['parts'][0]['text'])
+            result = response.json()
+
+            # --- NEW: TOKEN USAGE REPORTING ---
+            if 'usageMetadata' in result:
+                usage = result['usageMetadata']
+                print("\n--- 🌿 AI Recommendations Token Report ---")
+                print(f"   Prompt Tokens: {usage.get('promptTokenCount', 'N/A')}")
+                print(f"   Response Tokens: {usage.get('candidatesTokenCount', 'N/A')}")
+                print(f"   TOTAL TOKENS USED: {usage.get('totalTokenCount', 'N/A')}")
+                print("-----------------------------------------\n")
+            # --- END OF NEW BLOCK ---
+
+            return json.loads(result['candidates'][0]['content']['parts'][0]['text'])
     except Exception as e:
-        print(f"❌ Error calling Gemini API: {e}")
+        print(f"❌ Error calling Gemini API for recommendations: {e}")
         return {"error": "Failed to get AI recommendations."}
 
 # --- HTML PAGE SERVING ROUTES (Unchanged) ---
@@ -144,36 +195,18 @@ async def serve_history_page(request: Request): return templates.TemplateRespons
 
 @app.get("/api/geocode")
 async def geocode_location(q: str = Query(..., min_length=1), user: dict = Depends(get_current_user)):
-    """
-    NEW: This endpoint takes a search query (like a city name) and returns its
-    latitude and longitude using the WeatherAPI search functionality.
-    """
-    if not WEATHERAPI_KEY:
-        raise HTTPException(status_code=503, detail="Weather service is not configured.")
-    
+    if not WEATHERAPI_KEY: raise HTTPException(status_code=503, detail="Weather service is not configured.")
     search_url = f"http://api.weatherapi.com/v1/search.json?key={WEATHERAPI_KEY}&q={q}"
-    
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(search_url)
             resp.raise_for_status()
             results = resp.json()
-            
-            if not results:
-                raise HTTPException(status_code=404, detail=f"Location '{q}' not found.")
-            
-            # Take the most relevant (first) result
+            if not results: raise HTTPException(status_code=404, detail=f"Location '{q}' not found.")
             first_result = results[0]
             full_name = f"{first_result['name']}, {first_result['region']}, {first_result['country']}"
-            
-            return JSONResponse(content={
-                "name": full_name,
-                "latitude": first_result['lat'],
-                "longitude": first_result['lon']
-            })
-
-        except httpx.HTTPStatusError:
-            raise HTTPException(status_code=404, detail=f"Could not find location '{q}'. Please be more specific.")
+            return JSONResponse(content={"name": full_name, "latitude": first_result['lat'], "longitude": first_result['lon']})
+        except httpx.HTTPStatusError: raise HTTPException(status_code=404, detail=f"Could not find location '{q}'. Please be more specific.")
         except Exception as e:
             print(f"❌ Unexpected error during geocoding: {e}")
             raise HTTPException(status_code=500, detail="An error occurred while searching for the location.")
@@ -202,46 +235,49 @@ async def handle_onboarding(land_data: LandData, user: dict = Depends(get_curren
 
 @app.get("/api/dashboard-data")
 async def get_dashboard_data(user: dict = Depends(get_current_user)):
-    if not db: raise HTTPException(status_code=503, detail="Database service unavailable.")
-    user_uid = user["uid"]
-    doc_ref = db.collection("predictions").document(user_uid)
-    doc = doc_ref.get()
-    if not doc.exists or "lands" not in doc.to_dict() or not doc.to_dict()["lands"]:
-        raise HTTPException(status_code=404, detail="User has not completed onboarding.")
-    
-    all_plots = doc.to_dict().get("lands", [])
-    
-    needs_update = False
-    for plot in all_plots:
-        if "id" not in plot:
-            plot["id"] = str(uuid.uuid4())
-            needs_update = True
-            print(f"🩺 Migrating plot '{plot['name']}' for user {user_uid}, adding new ID.")
-    
-    if needs_update:
-        doc_ref.update({"lands": all_plots})
-        print(f"✅ Data migration complete for user {user_uid}.")
-
-    weather_forecasts = []
-    async with httpx.AsyncClient() as client:
+    try:
+        if not db: raise HTTPException(status_code=503, detail="Database service unavailable.")
+        user_uid = user["uid"]
+        doc_ref = db.collection("predictions").document(user_uid)
+        doc = doc_ref.get()
+        if not doc.exists or "lands" not in doc.to_dict() or not doc.to_dict()["lands"]:
+            raise HTTPException(status_code=404, detail="User has not completed onboarding.")
+        all_plots_raw = doc.to_dict().get("lands")
+        if not isinstance(all_plots_raw, list):
+            print(f"⚠️ Data for user {user_uid} has a malformed 'lands' field. Type is {type(all_plots_raw)}. Treating as empty.")
+            all_plots = []
+        else:
+            all_plots = all_plots_raw
+        needs_update = False
         for plot in all_plots:
-            location = plot.get("location", {})
-            lat = location.get("latitude")
-            lon = location.get("longitude")
-            
-            if lat and lon and WEATHERAPI_KEY:
-                weather_url = f"http://api.weatherapi.com/v1/forecast.json?key={WEATHERAPI_KEY}&q={lat},{lon}&days=3&aqi=yes&alerts=yes"
-                try:
-                    resp = await client.get(weather_url)
-                    resp.raise_for_status()
-                    weather_forecasts.append(resp.json())
-                except Exception as e:
-                    print(f"⚠️ Could not fetch weather for plot '{plot['name']}': {e}")
-                    weather_forecasts.append({"error": f"Could not retrieve weather for {plot['name']}."})
-            else:
-                weather_forecasts.append({"error": f"Location not set for {plot['name']}."})
-                
-    return JSONResponse(content={"all_plots": all_plots, "weather_forecasts": weather_forecasts})
+            if isinstance(plot, dict) and "id" not in plot:
+                plot["id"] = str(uuid.uuid4())
+                needs_update = True
+                print(f"🩺 Migrating plot '{plot.get('name', 'N/A')}' for user {user_uid}, adding new ID.")
+        if needs_update:
+            doc_ref.update({"lands": all_plots})
+            print(f"✅ Data migration complete for user {user_uid}.")
+        weather_forecasts = []
+        async with httpx.AsyncClient() as client:
+            for plot in all_plots:
+                if not isinstance(plot, dict): continue
+                location = plot.get("location", {})
+                lat, lon = location.get("latitude"), location.get("longitude")
+                if lat and lon and WEATHERAPI_KEY:
+                    weather_url = f"http://api.weatherapi.com/v1/forecast.json?key={WEATHERAPI_KEY}&q={lat},{lon}&days=3&aqi=yes&alerts=yes"
+                    try:
+                        resp = await client.get(weather_url)
+                        resp.raise_for_status()
+                        weather_forecasts.append(resp.json())
+                    except Exception as e:
+                        print(f"⚠️ Could not fetch weather for plot '{plot.get('name', 'N/A')}': {e}")
+                        weather_forecasts.append({"error": f"Could not retrieve weather for {plot.get('name', 'N/A')}."})
+                else:
+                    weather_forecasts.append({"error": f"Location not set for {plot.get('name', 'N/A')}."})
+        return JSONResponse(content={"all_plots": all_plots, "weather_forecasts": weather_forecasts})
+    except Exception as e:
+        print(f"🔥🔥🔥 CRITICAL ERROR IN DASHBOARD DATA API for user {user.get('uid')}: {e}")
+        raise HTTPException(status_code=500, detail="A critical error occurred while fetching dashboard data.")
 
 @app.post("/api/lands/delete")
 async def delete_land_plot(request: LandDeleteRequest, user: dict = Depends(get_current_user)):
@@ -251,13 +287,10 @@ async def delete_land_plot(request: LandDeleteRequest, user: dict = Depends(get_
     user_doc_ref = db.collection("predictions").document(user_uid)
     try:
         doc = user_doc_ref.get()
-        if not doc.exists:
-            raise HTTPException(status_code=404, detail="User document not found.")
+        if not doc.exists: raise HTTPException(status_code=404, detail="User document not found.")
         all_plots = doc.to_dict().get("lands", [])
-        updated_plots = [plot for plot in all_plots if plot.get("id") != plot_id_to_delete]
-        if len(updated_plots) == len(all_plots):
-            print(f"⚠️ Plot ID {plot_id_to_delete} not found for user {user_uid}, might be a stale request.")
-            raise HTTPException(status_code=404, detail="Plot ID not found in user's lands.")
+        updated_plots = [plot for plot in all_plots if isinstance(plot, dict) and plot.get("id") != plot_id_to_delete]
+        if len(updated_plots) == len(all_plots): raise HTTPException(status_code=404, detail="Plot ID not found.")
         user_doc_ref.update({"lands": updated_plots})
         print(f"✅ Plot {plot_id_to_delete} deleted for user {user_uid}.")
         return JSONResponse(content={"status": "success", "deleted_id": plot_id_to_delete})
@@ -281,7 +314,21 @@ async def get_prediction_history(user: dict = Depends(get_current_user)):
 
 @app.post("/predict")
 async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """
+    UPGRADED: Now uses the user's location to get an AI-powered market price estimate.
+    """
     if not model or plant_data_df is None: raise HTTPException(status_code=503, detail="Model not loaded.")
+    
+    user_uid = user["uid"]
+    location_str = "India" # Default fallback
+    if db:
+        doc_ref = db.collection("predictions").document(user_uid)
+        doc = doc_ref.get()
+        if doc.exists and "lands" in doc.to_dict() and doc.to_dict()["lands"]:
+            first_plot = doc.to_dict()["lands"][0]
+            if isinstance(first_plot, dict):
+                location_str = first_plot.get("location", {}).get("manual_entry", "India")
+
     image_bytes = await file.read()
     preprocessed_image = preprocess_image(image_bytes)
     predictions = model.predict(preprocessed_image)
@@ -291,9 +338,12 @@ async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_c
     plant_data = plant_data_df[plant_data_df['class_name'] == predicted_class_name].iloc[0]
     plant_name, disease_name, impact = plant_data['plant_name'], plant_data['disease_name'], plant_data['impact']
     predicted_yield = plant_data['base_yield_kg_per_acre'] * (1 - plant_data['yield_reduction_factor'])
-    market_price = get_market_price(plant_name)
+    
+    market_price = await get_ai_market_price_estimate(plant_name, location_str)
     total_harvest_value = predicted_yield * market_price
+    
     ai_recs = await get_ai_recommendations(plant_name, disease_name, impact)
+    
     prediction_details = {
         "prediction": predicted_class_name, "plant_name": plant_name, "disease_name": disease_name,
         "confidence": confidence, "predicted_yield_kg_per_acre": predicted_yield, "market_price_per_kg": market_price,
@@ -301,10 +351,10 @@ async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_c
         "timestamp": datetime.utcnow()
     }
     if db:
-        user_uid = user["uid"]
         user_doc_ref = db.collection("predictions").document(user_uid)
         user_doc_ref.set({"history": firestore.ArrayUnion([prediction_details])}, merge=True)
         print(f"✅ Prediction saved for user {user_uid}.")
+        
     return {
         "prediction": prediction_details['prediction'], "confidence": f"{prediction_details['confidence']:.2f}",
         "predicted_yield_kg_per_acre": f"{prediction_details['predicted_yield_kg_per_acre']:.2f}",
