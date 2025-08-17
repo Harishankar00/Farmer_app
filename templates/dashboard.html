@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Farm Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .bg-particles { position: fixed; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; }
+        .particle { position: absolute; background: rgba(255, 255, 255, 0.1); border-radius: 50%; animation: float 8s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; } 50% { transform: translateY(-30px) rotate(180deg); opacity: 0.8; } }
+        .glass-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); }
+        .primary-btn { background: linear-gradient(135deg, #667eea, #764ba2); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
+        .primary-btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 35px rgba(102, 126, 234, 0.6); }
+        .secondary-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px); }
+        .secondary-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .text-glow { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
+        .loading-spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 4px solid #fff; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .card-enter-animation { animation: card-enter 0.8s 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; transform: translateY(30px); }
+        @keyframes card-enter { to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="text-white">
+    <div class="bg-particles"></div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 w-full p-4 z-50 flex justify-between items-center">
+        <div class="font-bold text-xl text-glow">Farmer Dashboard</div>
+        <div class="flex items-center space-x-2">
+            <span class="text-sm font-semibold text-white/80 hidden sm:block">User: <span id="userEmail">...</span></span>
+            <button id="signOutBtn" class="secondary-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">
+                Sign Out
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="dashboardContent" class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 pt-20 sm:pt-4 hidden">
+        <div class="w-full max-w-4xl mx-auto">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Weather Card (Main Column) -->
+                <div class="lg:col-span-2 glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.2s;">
+                    <h2 class="text-xl font-bold mb-4 text-white/90">Live Weather at Your Farm</h2>
+                    <div id="weatherContent" class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
+                        <div class="text-center sm:text-left">
+                            <p class="text-5xl sm:text-6xl font-bold text-glow" id="temperature">--°C</p>
+                            <p class="text-white/80 font-medium" id="weatherDescription">Loading...</p>
+                            <p class="text-sm text-white/70" id="locationName">Fetching location...</p>
+                        </div>
+                        <div class="w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center">
+                            <img id="weatherIcon" src="https://placehold.co/128x128/ffffff/000000?text=☀️" alt="Weather icon" class="w-full h-full">
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-center sm:text-left">
+                            <div><p class="font-semibold text-lg" id="humidity">--%</p><p class="text-sm text-white/70">Humidity</p></div>
+                            <div><p class="font-semibold text-lg" id="windSpeed">-- km/h</p><p class="text-sm text-white/70">Wind</p></div>
+                            <div><p class="font-semibold text-lg" id="feelsLike">--°C</p><p class="text-sm text-white/70">Feels Like</p></div>
+                            <div><p class="font-semibold text-lg" id="pressure">-- hPa</p><p class="text-sm text-white/70">Pressure</p></div>
+                        </div>
+                    </div>
+                    <div id="weatherError" class="text-center text-amber-300 hidden pt-4">Could not load weather data.</div>
+                </div>
+
+                <!-- Side Column -->
+                <div class="space-y-6">
+                    <!-- My Farm Card -->
+                    <div class="glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.4s;">
+                        <h2 class="text-xl font-bold mb-4 text-white/90">My Farm</h2>
+                        <div id="farmContent" class="space-y-2">
+                            <p><span class="font-semibold">Name:</span> <span id="farmName">...</span></p>
+                            <p><span class="font-semibold">Area:</span> <span id="farmArea">...</span></p>
+                            <p><span class="font-semibold">Location:</span> <span id="farmLocation">...</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions Card -->
+                    <div class="glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.6s;">
+                        <h2 class="text-xl font-bold mb-4 text-white/90">Quick Actions</h2>
+                        <div class="space-y-3">
+                            <a href="/prediction" class="primary-btn w-full py-3 px-4 rounded-xl font-semibold text-base flex items-center justify-center space-x-2">
+                                <span>🌿 Analyze New Plant</span>
+                            </a>
+                            <a href="/history" class="secondary-btn w-full py-3 px-4 rounded-xl font-semibold text-base flex items-center justify-center space-x-2">
+                                <span>📜 View My History</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Loading State -->
+    <div id="loadingState" class="min-h-screen flex flex-col items-center justify-center text-center">
+        <div class="loading-spinner"></div>
+        <p class="mt-4 text-lg font-semibold">Loading your dashboard...</p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBPQKIv9hyVZRRwXm-D4w3J_WYblGl0eSg",
+            authDomain: "farmer-app-c93e9.firebaseapp.com",
+            projectId: "farmer-app-c93e9",
+            storageBucket: "farmer-app-c93e9.firebasestorage.app",
+            messagingSenderId: "25818831885",
+            appId: "1:25818831885:web:9f2e961f3d35b37002c944",
+            measurementId: "G-HJNMYGF6ZJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const loadingState = document.getElementById('loadingState');
+        const dashboardContent = document.getElementById('dashboardContent');
+        const userEmailSpan = document.getElementById('userEmail');
+        const signOutBtn = document.getElementById('signOutBtn');
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userEmailSpan.textContent = user.email || 'Guest User';
+                try {
+                    const token = await user.getIdToken();
+                    const response = await fetch('/api/dashboard-data', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (response.status === 404) {
+                        window.location.replace('/onboarding');
+                        return;
+                    }
+                    if (!response.ok) throw new Error('Failed to load dashboard data.');
+                    const data = await response.json();
+                    populateDashboard(data);
+                } catch (error) {
+                    console.error("Dashboard loading error:", error);
+                    document.getElementById('weatherError').textContent = "Could not load farm and weather data. Please try again.";
+                    document.getElementById('weatherError').classList.remove('hidden');
+                } finally {
+                    loadingState.classList.add('hidden');
+                    dashboardContent.classList.remove('hidden');
+                }
+            } else {
+                window.location.replace('/login');
+            }
+        });
+
+        function populateDashboard(data) {
+            // Populate Farm Info
+            if (data.farm_data) {
+                const farm = data.farm_data;
+                document.getElementById('farmName').textContent = farm.name || 'N/A';
+                document.getElementById('farmArea').textContent = `${farm.area || '--'} ${farm.unit || ''}`;
+                document.getElementById('farmLocation').textContent = farm.location.manual_entry || `Lat: ${farm.location.latitude?.toFixed(2)}, Lon: ${farm.location.longitude?.toFixed(2)}`;
+            }
+
+            // --- FIX: UPDATED FOR WEATHERAPI ---
+            // This block is now tailored to the data structure from WeatherAPI.
+            if (data.weather_data && !data.weather_data.error) {
+                const weather = data.weather_data;
+                // The data is nested under 'current' and 'location' keys
+                document.getElementById('temperature').textContent = `${Math.round(weather.current.temp_c)}°C`;
+                document.getElementById('weatherDescription').textContent = weather.current.condition.text;
+                document.getElementById('locationName').textContent = weather.location.name;
+                // WeatherAPI provides a full URL, so we need to add "https:" to it
+                document.getElementById('weatherIcon').src = `https:${weather.current.condition.icon}`;
+                document.getElementById('humidity').textContent = `${weather.current.humidity}%`;
+                document.getElementById('windSpeed').textContent = `${weather.current.wind_kph} km/h`;
+                document.getElementById('feelsLike').textContent = `${Math.round(weather.current.feelslike_c)}°C`;
+                // WeatherAPI uses millibars (mb), which is equivalent to hPa
+                document.getElementById('pressure').textContent = `${weather.current.pressure_mb} hPa`;
+            } else {
+                 const errorMsg = data.weather_data?.error?.message || "Weather data is unavailable.";
+                 document.getElementById('weatherError').textContent = `Weather Error: ${errorMsg}`;
+                 document.getElementById('weatherError').classList.remove('hidden');
+            }
+        }
+
+        signOutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Sign out error:', error);
+            }
+        });
+
+        function createParticles() {
+            const container = document.querySelector('.bg-particles');
+            if (container.children.length > 0) return;
+            const particleCount = 25;
+            for (let i = 0; i < particleCount; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.cssText = `left:${Math.random()*100}%; top:${Math.random()*100}%; width:${Math.random()*6+4}px; height:${p.style.width}; animation-delay:${Math.random()*8}s; animation-duration:${Math.random()*6+6}s;`;
+                container.appendChild(p);
+            }
+        }
+        createParticles();
+    </script>
+</body>
+</html>

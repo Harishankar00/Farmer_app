@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Your Farm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .bg-particles { position: fixed; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; }
+        .particle { position: absolute; background: rgba(255, 255, 255, 0.1); border-radius: 50%; animation: float 8s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; } 50% { transform: translateY(-30px) rotate(180deg); opacity: 0.8; } }
+        .glass-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+        .input-field { background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); color: white; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .input-field::placeholder { color: rgba(255, 255, 255, 0.6); }
+        .input-field:focus { background: rgba(255, 255, 255, 0.15); border-color: rgba(103, 126, 234, 0.8); outline: none; box-shadow: 0 0 0 3px rgba(103, 126, 234, 0.1); }
+        .primary-btn { background: linear-gradient(135deg, #667eea, #764ba2); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
+        .primary-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6); }
+        .primary-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .secondary-btn { background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); }
+        .secondary-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .loading-spinner { border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 3px solid #fff; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .text-glow { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
+        .error-message { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body>
+    <div class="bg-particles"></div>
+
+    <div class="relative z-10 flex items-center justify-center min-h-screen p-4">
+        <div class="glass-card p-6 sm:p-8 rounded-3xl w-full max-w-lg space-y-6 sm:space-y-8 text-white">
+            <div class="text-center space-y-3">
+                <h1 class="text-3xl sm:text-4xl font-bold text-glow">🚜 Welcome, Farmer!</h1>
+                <p class="text-white/80 text-base sm:text-lg font-light">Let's set up your first plot of land.</p>
+            </div>
+
+            <form id="onboardingForm" class="space-y-6">
+                <!-- Land Name -->
+                <div>
+                    <label for="landName" class="block text-sm font-medium text-white/90 mb-2">Land / Plot Name</label>
+                    <input type="text" id="landName" class="input-field w-full px-4 py-3 rounded-xl" placeholder="e.g., North Field" required>
+                </div>
+
+                <!-- Land Area -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="col-span-2">
+                        <label for="landArea" class="block text-sm font-medium text-white/90 mb-2">Area</label>
+                        <input type="number" id="landArea" class="input-field w-full px-4 py-3 rounded-xl" placeholder="e.g., 5.5" step="0.1" required>
+                    </div>
+                    <div>
+                        <label for="areaUnit" class="block text-sm font-medium text-white/90 mb-2">Unit</label>
+                        <select id="areaUnit" class="input-field w-full px-4 py-3 rounded-xl appearance-none">
+                            <option>Acres</option>
+                            <option>Hectares</option>
+                            <option>Square Meters</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Location -->
+                <div>
+                    <label class="block text-sm font-medium text-white/90 mb-2">Location</label>
+                    <div class="space-y-3">
+                        <button type="button" id="getLocationBtn" class="secondary-btn w-full py-3 px-4 rounded-xl font-semibold text-base flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            <span>Use Current Location</span>
+                            <div id="locationSpinner" class="loading-spinner hidden"></div>
+                        </button>
+                        <div id="locationStatus" class="text-center text-sm text-emerald-300 font-medium hidden"></div>
+                        <input type="text" id="manualLocation" class="input-field w-full px-4 py-3 rounded-xl" placeholder="Or enter manually (e.g., City, State)">
+                        <!-- Hidden fields to store coordinates -->
+                        <input type="hidden" id="latitude">
+                        <input type="hidden" id="longitude">
+                    </div>
+                </div>
+
+                <!-- Error Message Display -->
+                <div id="formError" class="text-sm text-red-200 font-medium hidden error-message p-3 rounded-xl text-center"></div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="submitBtn" class="primary-btn w-full py-3 sm:py-4 px-6 rounded-xl text-white font-semibold text-base sm:text-lg flex items-center justify-center">
+                    <span id="btnText">Save Farm & Continue</span>
+                    <div id="btnSpinner" class="loading-spinner mx-auto hidden"></div>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBPQKIv9hyVZRRwXm-D4w3J_WYblGl0eSg",
+            authDomain: "farmer-app-c93e9.firebaseapp.com",
+            projectId: "farmer-app-c93e9",
+            storageBucket: "farmer-app-c93e9.firebasestorage.app",
+            messagingSenderId: "25818831885",
+            appId: "1:25818831885:web:9f2e961f3d35b37002c944",
+            measurementId: "G-HJNMYGF6ZJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // UI Elements
+        const onboardingForm = document.getElementById('onboardingForm');
+        const getLocationBtn = document.getElementById('getLocationBtn');
+        const locationSpinner = document.getElementById('locationSpinner');
+        const locationStatus = document.getElementById('locationStatus');
+        const latitudeInput = document.getElementById('latitude');
+        const longitudeInput = document.getElementById('longitude');
+        const formError = document.getElementById('formError');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+
+        // Check if user is logged in, otherwise redirect
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                window.location.replace('/login');
+            }
+        });
+
+        // --- Geolocation Logic ---
+        getLocationBtn.addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                showError("Geolocation is not supported by your browser.");
+                return;
+            }
+
+            locationSpinner.classList.remove('hidden');
+            getLocationBtn.disabled = true;
+            locationStatus.classList.add('hidden');
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    latitudeInput.value = latitude;
+                    longitudeInput.value = longitude;
+                    
+                    locationStatus.textContent = `✅ Location captured! (${latitude.toFixed(2)}, ${longitude.toFixed(2)})`;
+                    locationStatus.classList.remove('hidden');
+                    document.getElementById('manualLocation').value = ''; // Clear manual input
+                    locationSpinner.classList.add('hidden');
+                    getLocationBtn.disabled = false;
+                },
+                () => {
+                    showError("Unable to retrieve your location. Please grant permission or enter it manually.");
+                    locationSpinner.classList.add('hidden');
+                    getLocationBtn.disabled = false;
+                }
+            );
+        });
+
+        // --- Form Submission Logic ---
+        onboardingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const user = auth.currentUser;
+            if (!user) {
+                showError("You are not logged in. Please refresh and try again.");
+                return;
+            }
+
+            // Validate that we have some form of location
+            if (!latitudeInput.value && !document.getElementById('manualLocation').value) {
+                showError("Please provide a location for your farm.");
+                return;
+            }
+
+            setLoadingState(true);
+
+            // Collect form data
+            const landData = {
+                name: document.getElementById('landName').value,
+                area: parseFloat(document.getElementById('landArea').value),
+                unit: document.getElementById('areaUnit').value,
+                location: {
+                    latitude: latitudeInput.value ? parseFloat(latitudeInput.value) : null,
+                    longitude: longitudeInput.value ? parseFloat(longitudeInput.value) : null,
+                    manual_entry: document.getElementById('manualLocation').value
+                }
+            };
+
+            try {
+                const token = await user.getIdToken();
+                
+                // We will create this new API endpoint in app.py next
+                const response = await fetch('/api/onboard', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(landData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to save farm details.');
+                }
+
+                // Success! Redirect to the dashboard.
+                window.location.replace('/dashboard');
+
+            } catch (error) {
+                showError(error.message);
+                setLoadingState(false);
+            }
+        });
+
+        // --- Helper Functions ---
+        function setLoadingState(isLoading) {
+            submitBtn.disabled = isLoading;
+            if (isLoading) {
+                btnText.classList.add('hidden');
+                btnSpinner.classList.remove('hidden');
+            } else {
+                btnText.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
+            }
+        }
+
+        function showError(message) {
+            formError.textContent = message;
+            formError.classList.remove('hidden');
+        }
+
+        function hideError() {
+            formError.classList.add('hidden');
+        }
+
+        function createParticles() {
+            const container = document.querySelector('.bg-particles');
+            const particleCount = 20;
+            for (let i = 0; i < particleCount; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.cssText = `left:${Math.random()*100}%; top:${Math.random()*100}%; width:${Math.random()*6+4}px; height:${p.style.width}; animation-delay:${Math.random()*8}s; animation-duration:${Math.random()*6+6}s;`;
+                container.appendChild(p);
+            }
+        }
+        createParticles();
+    </script>
+</body>
+</html>
