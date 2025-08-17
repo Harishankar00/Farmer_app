@@ -16,17 +16,19 @@
         }
         .bg-particles { position: fixed; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; }
         .particle { position: absolute; background: rgba(255, 255, 255, 0.1); border-radius: 50%; animation: float 8s ease-in-out infinite; }
-        @keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; } 50% { transform: translateY(-30px) rotate(180deg); opacity: 0.8; } }
+        @keyframes float { 0%, 100% { transform: translateY(0px); opacity: 0.3; } 50% { transform: translateY(-20px); opacity: 0.8; } }
         .glass-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); }
-        .primary-btn { background: linear-gradient(135deg, #667eea, #764ba2); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
-        .primary-btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 35px rgba(102, 126, 234, 0.6); }
         .secondary-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px); }
         .secondary-btn:hover { background: rgba(255, 255, 255, 0.2); }
         .text-glow { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
         .loading-spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 4px solid #fff; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .card-enter-animation { animation: card-enter 0.8s 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; transform: translateY(30px); }
+        .card-enter-animation { animation: card-enter 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; transform: translateY(20px); }
         @keyframes card-enter { to { opacity: 1; transform: translateY(0); } }
+        /* Custom scrollbar for plot list */
+        .plot-list::-webkit-scrollbar { width: 6px; }
+        .plot-list::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); }
+        .plot-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 3px; }
     </style>
 </head>
 <body class="text-white">
@@ -35,67 +37,89 @@
     <!-- Header -->
     <header class="fixed top-0 left-0 w-full p-4 z-50 flex justify-between items-center">
         <div class="font-bold text-xl text-glow">Farmer Dashboard</div>
-        <div class="flex items-center space-x-2">
-            <span class="text-sm font-semibold text-white/80 hidden sm:block">User: <span id="userEmail">...</span></span>
-            <button id="signOutBtn" class="secondary-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">
-                Sign Out
-            </button>
-        </div>
+        <button id="signOutBtn" class="secondary-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">Sign Out</button>
     </header>
 
     <!-- Main Content -->
-    <main id="dashboardContent" class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 pt-20 sm:pt-4 hidden">
-        <div class="w-full max-w-4xl mx-auto">
+    <main id="dashboardContent" class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 pt-24 sm:pt-20 hidden">
+        <div class="w-full max-w-6xl mx-auto space-y-6">
+            
+            <!-- Plot Management and Quick Actions Row -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                <!-- Weather Card (Main Column) -->
-                <div class="lg:col-span-2 glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.2s;">
-                    <h2 class="text-xl font-bold mb-4 text-white/90">Live Weather at Your Farm</h2>
-                    <div id="weatherContent" class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
-                        <div class="text-center sm:text-left">
-                            <p class="text-5xl sm:text-6xl font-bold text-glow" id="temperature">--°C</p>
-                            <p class="text-white/80 font-medium" id="weatherDescription">Loading...</p>
-                            <p class="text-sm text-white/70" id="locationName">Fetching location...</p>
-                        </div>
-                        <div class="w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center">
-                            <img id="weatherIcon" src="https://placehold.co/128x128/ffffff/000000?text=☀️" alt="Weather icon" class="w-full h-full">
-                        </div>
-                        <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-center sm:text-left">
-                            <div><p class="font-semibold text-lg" id="humidity">--%</p><p class="text-sm text-white/70">Humidity</p></div>
-                            <div><p class="font-semibold text-lg" id="windSpeed">-- km/h</p><p class="text-sm text-white/70">Wind</p></div>
-                            <div><p class="font-semibold text-lg" id="feelsLike">--°C</p><p class="text-sm text-white/70">Feels Like</p></div>
-                            <div><p class="font-semibold text-lg" id="pressure">-- hPa</p><p class="text-sm text-white/70">Pressure</p></div>
-                        </div>
+                <div class="lg:col-span-2 glass-card p-6 rounded-3xl card-enter-animation">
+                    <h2 class="text-xl font-bold mb-4 text-white/90">Plot Management</h2>
+                    <div class="flex flex-col sm:flex-row gap-4 items-center">
+                        <select id="plotSelector" class="w-full sm:w-1/2 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-white/50">
+                            <!-- Options will be populated by JS -->
+                        </select>
+                        <a href="/onboarding" class="w-full sm:w-auto flex-grow secondary-btn text-center px-4 py-3 rounded-xl font-semibold transition-all">➕ Add New Plot</a>
+                        <a href="/history" class="w-full sm:w-auto flex-grow secondary-btn text-center px-4 py-3 rounded-xl font-semibold transition-all">📜 View History</a>
+                        <a href="/prediction" class="w-full sm:w-auto flex-grow secondary-btn text-center px-4 py-3 rounded-xl font-semibold transition-all">🌿 Analyze Plant</a>
                     </div>
-                    <div id="weatherError" class="text-center text-amber-300 hidden pt-4">Could not load weather data.</div>
                 </div>
-
-                <!-- Side Column -->
-                <div class="space-y-6">
-                    <!-- My Farm Card -->
-                    <div class="glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.4s;">
-                        <h2 class="text-xl font-bold mb-4 text-white/90">My Farm</h2>
-                        <div id="farmContent" class="space-y-2">
-                            <p><span class="font-semibold">Name:</span> <span id="farmName">...</span></p>
-                            <p><span class="font-semibold">Area:</span> <span id="farmArea">...</span></p>
-                            <p><span class="font-semibold">Location:</span> <span id="farmLocation">...</span></p>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions Card -->
-                    <div class="glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.6s;">
-                        <h2 class="text-xl font-bold mb-4 text-white/90">Quick Actions</h2>
-                        <div class="space-y-3">
-                            <a href="/prediction" class="primary-btn w-full py-3 px-4 rounded-xl font-semibold text-base flex items-center justify-center space-x-2">
-                                <span>🌿 Analyze New Plant</span>
-                            </a>
-                            <a href="/history" class="secondary-btn w-full py-3 px-4 rounded-xl font-semibold text-base flex items-center justify-center space-x-2">
-                                <span>📜 View My History</span>
-                            </a>
-                        </div>
+                <div class="glass-card p-6 rounded-3xl card-enter-animation">
+                    <h2 class="text-xl font-bold mb-2 text-white/90">My Plots</h2>
+                    <div id="plotList" class="plot-list max-h-24 overflow-y-auto pr-2 space-y-2">
+                        <!-- Plot list items will be populated by JS -->
                     </div>
                 </div>
             </div>
+
+            <!-- Weather Dashboard Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <!-- Main Temp -->
+                <div class="col-span-2 md:col-span-4 lg:col-span-2 glass-card p-6 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.1s;">
+                    <p class="text-6xl font-bold text-glow" id="temperature">--°C</p>
+                    <p class="font-medium text-white/80" id="weatherDescription">Loading...</p>
+                    <p class="text-sm text-white/70" id="locationName">...</p>
+                </div>
+                <!-- Feels Like -->
+                <div class="glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.2s;">
+                    <p class="text-3xl font-bold" id="feelsLike">--°C</p>
+                    <p class="text-sm text-white/70">Feels Like</p>
+                </div>
+                <!-- Humidity -->
+                <div class="glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.3s;">
+                    <p class="text-3xl font-bold" id="humidity">--%</p>
+                    <p class="text-sm text-white/70">Humidity</p>
+                </div>
+                <!-- Wind -->
+                <div class="col-span-2 glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.4s;">
+                    <p class="text-3xl font-bold" id="windSpeed">-- km/h</p>
+                    <p class="text-sm text-white/70" id="windDirection">Wind</p>
+                </div>
+                <!-- UV Index -->
+                <div class="glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.5s;">
+                    <p class="text-3xl font-bold" id="uvIndex">--</p>
+                    <p class="text-sm text-white/70">UV Index</p>
+                </div>
+                <!-- Visibility -->
+                <div class="glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.6s;">
+                    <p class="text-3xl font-bold" id="visibility">-- km</p>
+                    <p class="text-sm text-white/70">Visibility</p>
+                </div>
+                <!-- Cloud Cover -->
+                <div class="glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.7s;">
+                    <p class="text-3xl font-bold" id="cloudCover">--%</p>
+                    <p class="text-sm text-white/70">Cloud Cover</p>
+                </div>
+                <!-- Precipitation -->
+                <div class="glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.8s;">
+                    <p class="text-3xl font-bold" id="precipitation">-- mm</p>
+                    <p class="text-sm text-white/70">Precipitation</p>
+                </div>
+                <!-- Sunrise -->
+                <div class="glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 0.9s;">
+                    <p class="text-3xl font-bold" id="sunrise">--:--</p>
+                    <p class="text-sm text-white/70">Sunrise</p>
+                </div>
+                <!-- Sunset -->
+                <div class="glass-card p-4 rounded-3xl flex flex-col justify-center items-center text-center card-enter-animation" style="animation-delay: 1.0s;">
+                    <p class="text-3xl font-bold" id="sunset">--:--</p>
+                    <p class="text-sm text-white/70">Sunset</p>
+                </div>
+            </div>
+             <div id="weatherError" class="text-center text-amber-300 hidden pt-4 glass-card p-4 rounded-xl"></div>
         </div>
     </main>
     
@@ -103,6 +127,18 @@
     <div id="loadingState" class="min-h-screen flex flex-col items-center justify-center text-center">
         <div class="loading-spinner"></div>
         <p class="mt-4 text-lg font-semibold">Loading your dashboard...</p>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden">
+        <div class="glass-card p-8 rounded-3xl text-center max-w-sm mx-4">
+            <h3 class="text-2xl font-bold mb-4">Are you sure?</h3>
+            <p class="text-white/80 mb-6">This will permanently delete the plot "<span id="plotNameToDelete" class="font-bold"></span>". This action cannot be undone.</p>
+            <div class="flex gap-4">
+                <button id="cancelDeleteBtn" class="secondary-btn w-full py-3 rounded-xl font-semibold">Cancel</button>
+                <button id="confirmDeleteBtn" class="bg-red-600 hover:bg-red-700 w-full py-3 rounded-xl font-semibold">Delete</button>
+            </div>
+        </div>
     </div>
 
     <script type="module">
@@ -122,14 +158,25 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
+        // --- Global state variables ---
+        let allPlotsData = [];
+        let weatherForecastsData = [];
+        let currentUser = null;
+
+        // --- UI Elements ---
         const loadingState = document.getElementById('loadingState');
         const dashboardContent = document.getElementById('dashboardContent');
-        const userEmailSpan = document.getElementById('userEmail');
-        const signOutBtn = document.getElementById('signOutBtn');
+        const plotSelector = document.getElementById('plotSelector');
+        const plotList = document.getElementById('plotList');
+        const deleteModal = document.getElementById('deleteModal');
+        const plotNameToDelete = document.getElementById('plotNameToDelete');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
+        // --- Main Authentication and Data Loading ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                userEmailSpan.textContent = user.email || 'Guest User';
+                currentUser = user;
                 try {
                     const token = await user.getIdToken();
                     const response = await fetch('/api/dashboard-data', {
@@ -141,7 +188,12 @@
                     }
                     if (!response.ok) throw new Error('Failed to load dashboard data.');
                     const data = await response.json();
-                    populateDashboard(data);
+                    
+                    allPlotsData = data.all_plots;
+                    weatherForecastsData = data.weather_forecasts;
+
+                    populateDashboard();
+
                 } catch (error) {
                     console.error("Dashboard loading error:", error);
                     document.getElementById('weatherError').textContent = "Could not load farm and weather data. Please try again.";
@@ -155,38 +207,76 @@
             }
         });
 
-        function populateDashboard(data) {
-            // Populate Farm Info
-            if (data.farm_data) {
-                const farm = data.farm_data;
-                document.getElementById('farmName').textContent = farm.name || 'N/A';
-                document.getElementById('farmArea').textContent = `${farm.area || '--'} ${farm.unit || ''}`;
-                document.getElementById('farmLocation').textContent = farm.location.manual_entry || `Lat: ${farm.location.latitude?.toFixed(2)}, Lon: ${farm.location.longitude?.toFixed(2)}`;
+        // --- UI Population and Update Functions ---
+        function populateDashboard() {
+            plotSelector.innerHTML = '';
+            plotList.innerHTML = '';
+
+            if (allPlotsData.length === 0) {
+                 plotList.innerHTML = `<p class="text-white/60 text-sm text-center">No plots added yet.</p>`;
+                 // You could also hide the weather grid here if you want
+                 return;
             }
 
-            // --- FIX: UPDATED FOR WEATHERAPI ---
-            // This block is now tailored to the data structure from WeatherAPI.
-            if (data.weather_data && !data.weather_data.error) {
-                const weather = data.weather_data;
-                // The data is nested under 'current' and 'location' keys
-                document.getElementById('temperature').textContent = `${Math.round(weather.current.temp_c)}°C`;
-                document.getElementById('weatherDescription').textContent = weather.current.condition.text;
+            allPlotsData.forEach((plot, index) => {
+                // Populate dropdown
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = plot.name;
+                plotSelector.appendChild(option);
+
+                // Populate "My Plots" list
+                const plotItem = document.createElement('div');
+                plotItem.className = 'flex justify-between items-center text-sm';
+                plotItem.innerHTML = `
+                    <span class="font-medium">${plot.name}</span>
+                    <button data-plot-id="${plot.id}" data-plot-name="${plot.name}" class="delete-btn text-red-400 hover:text-red-300 text-xl">&times;</button>
+                `;
+                plotList.appendChild(plotItem);
+            });
+
+            // Add event listeners to the new delete buttons
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', handleDeleteClick);
+            });
+
+            // Initial display for the first plot
+            updateDisplayForPlot(0);
+        }
+
+        function updateDisplayForPlot(index) {
+            const weather = weatherForecastsData[index];
+
+            if (weather && !weather.error) {
+                const current = weather.current;
+                const forecast = weather.forecast.forecastday[0];
+                
+                document.getElementById('temperature').textContent = `${Math.round(current.temp_c)}°C`;
+                document.getElementById('weatherDescription').textContent = current.condition.text;
                 document.getElementById('locationName').textContent = weather.location.name;
-                // WeatherAPI provides a full URL, so we need to add "https:" to it
-                document.getElementById('weatherIcon').src = `https:${weather.current.condition.icon}`;
-                document.getElementById('humidity').textContent = `${weather.current.humidity}%`;
-                document.getElementById('windSpeed').textContent = `${weather.current.wind_kph} km/h`;
-                document.getElementById('feelsLike').textContent = `${Math.round(weather.current.feelslike_c)}°C`;
-                // WeatherAPI uses millibars (mb), which is equivalent to hPa
-                document.getElementById('pressure').textContent = `${weather.current.pressure_mb} hPa`;
+                document.getElementById('feelsLike').textContent = `${Math.round(current.feelslike_c)}°C`;
+                document.getElementById('humidity').textContent = `${current.humidity}%`;
+                document.getElementById('windSpeed').textContent = `${current.wind_kph} km/h`;
+                document.getElementById('windDirection').textContent = `Wind (${current.wind_dir})`;
+                document.getElementById('uvIndex').textContent = current.uv;
+                document.getElementById('visibility').textContent = `${current.vis_km} km`;
+                document.getElementById('cloudCover').textContent = `${current.cloud}%`;
+                document.getElementById('precipitation').textContent = `${current.precip_mm} mm`;
+                document.getElementById('sunrise').textContent = forecast.astro.sunrise;
+                document.getElementById('sunset').textContent = forecast.astro.sunset;
+                document.getElementById('weatherError').classList.add('hidden');
             } else {
-                 const errorMsg = data.weather_data?.error?.message || "Weather data is unavailable.";
-                 document.getElementById('weatherError').textContent = `Weather Error: ${errorMsg}`;
-                 document.getElementById('weatherError').classList.remove('hidden');
+                document.getElementById('weatherError').textContent = weather.error || "Weather data unavailable for this plot.";
+                document.getElementById('weatherError').classList.remove('hidden');
             }
         }
 
-        signOutBtn.addEventListener('click', async () => {
+        // --- Event Listeners ---
+        plotSelector.addEventListener('change', (e) => {
+            updateDisplayForPlot(e.target.value);
+        });
+
+        document.getElementById('signOutBtn').addEventListener('click', async () => {
             try {
                 await signOut(auth);
                 window.location.href = '/login';
@@ -195,6 +285,61 @@
             }
         });
 
+        // --- Delete Plot Logic ---
+        function handleDeleteClick(e) {
+            const plotId = e.target.dataset.plotId;
+            const plotName = e.target.dataset.plotName;
+            plotNameToDelete.textContent = plotName;
+            confirmDeleteBtn.dataset.plotId = plotId; // Store ID on the confirm button
+            deleteModal.classList.remove('hidden');
+        }
+
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteModal.classList.add('hidden');
+        });
+
+        confirmDeleteBtn.addEventListener('click', async (e) => {
+            const plotId = e.target.dataset.plotId;
+            const originalText = e.target.innerHTML;
+            e.target.innerHTML = `<div class="loading-spinner mx-auto" style="width:20px; height:20px; border-width: 2px;"></div>`;
+            e.target.disabled = true;
+
+            try {
+                const token = await currentUser.getIdToken();
+                const response = await fetch('/api/lands/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ plot_id: plotId })
+                });
+
+                if (!response.ok) throw new Error('Failed to delete plot.');
+
+                // Deletion successful, update the UI
+                // Find the index of the deleted plot
+                const deletedIndex = allPlotsData.findIndex(p => p.id === plotId);
+                if (deletedIndex > -1) {
+                    // Remove it from our local data arrays
+                    allPlotsData.splice(deletedIndex, 1);
+                    weatherForecastsData.splice(deletedIndex, 1);
+                }
+                
+                // Repopulate the entire dashboard to reflect the change
+                populateDashboard();
+
+            } catch (error) {
+                console.error("Delete error:", error);
+                alert("Could not delete the plot. Please try again.");
+            } finally {
+                deleteModal.classList.add('hidden');
+                e.target.innerHTML = originalText;
+                e.target.disabled = false;
+            }
+        });
+
+        // --- Background Particles ---
         function createParticles() {
             const container = document.querySelector('.bg-particles');
             if (container.children.length > 0) return;

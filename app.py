@@ -7,11 +7,11 @@ import tensorflow as tf
 from PIL import Image
 from datetime import datetime
 import firebase_admin
-from firebase_admin import credentials, auth
-from google.cloud import firestore
+from firebase_admin import credentials, auth, firestore
+from google.cloud import firestore as google_firestore
 from google.oauth2 import service_account
-from fastapi import FastAPI, File, UploadFile, Request, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import FastAPI, File, UploadFile, Request, Depends, HTTPException, status, Query
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
@@ -19,7 +19,8 @@ from dotenv import load_dotenv
 import json
 import random
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
+import uuid # Used for creating unique IDs for land plots
 
 # --- Environment Variable Loading ---
 load_dotenv()
@@ -30,8 +31,7 @@ try:
     cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
     firebase_admin.initialize_app(cred)
     print("✅ Firebase Admin SDK initialized successfully.")
-    gcp_credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE)
-    db = firestore.Client(credentials=gcp_credentials, project=gcp_credentials.project_id)
+    db = firestore.client()
     print("✅ Firestore client initialized successfully.")
 except Exception as e:
     print(f"❌ Error initializing Firebase/Firestore: {e}")
@@ -48,13 +48,12 @@ plant_data_df = None
 
 # --- API Keys ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-WEATHERAPI_KEY = "c7342727798e4729b39183944251608" # As requested
+WEATHERAPI_KEY = os.getenv("WEATHERAPI_KEY")
 
 if not GEMINI_API_KEY:
-    print("⚠️ WARNING: GEMINI_API_KEY not found in environment variables.")
+    print("⚠️ WARNING: GEMINI_API_KEY not found in .env file.")
 if not WEATHERAPI_KEY:
-    print("⚠️ WARNING: WEATHERAPI_KEY not found. Weather feature will be disabled.")
-
+    print("⚠️ WARNING: WEATHERAPI_KEY not found in .env file. Weather feature will be disabled.")
 
 # --- Pydantic Models for Data Validation ---
 class Location(BaseModel):
@@ -63,15 +62,18 @@ class Location(BaseModel):
     manual_entry: Optional[str] = None
 
 class LandData(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     area: float
     unit: str
     location: Location
 
+class LandDeleteRequest(BaseModel):
+    plot_id: str
+
 
 # --- Authentication ---
 oauth2_scheme = HTTPBearer(auto_error=False)
-
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme)):
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated.")
@@ -94,7 +96,7 @@ async def load_model_and_data():
     except Exception as e:
         print(f"❌ CRITICAL ERROR during startup: {e}")
 
-# --- Helper Functions ---
+# --- Helper Functions (Unchanged) ---
 def preprocess_image(image_bytes: bytes):
     img = Image.open(io.BytesIO(image_bytes)).resize((256, 256))
     img_array = np.expand_dims(np.array(img), axis=0) / 255.0
@@ -119,39 +121,62 @@ async def get_ai_recommendations(plant_name: str, disease_name: str, impact: str
         print(f"❌ Error calling Gemini API: {e}")
         return {"error": "Failed to get AI recommendations."}
 
-# ==============================================================================
-# HTML PAGE SERVING ROUTES
-# FIX: Removed the `Depends(get_current_user)` dependency from these routes.
-# The JavaScript inside each page will handle authentication checks.
-# ==============================================================================
-
+# --- HTML PAGE SERVING ROUTES (Unchanged) ---
 @app.get("/", response_class=HTMLResponse)
-async def serve_root_as_login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+async def serve_root_as_login(request: Request): return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/login", response_class=HTMLResponse)
-async def serve_login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+async def serve_login_page(request: Request): return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/onboarding", response_class=HTMLResponse)
-async def serve_onboarding_page(request: Request): # <- FIX: Auth dependency removed
-    return templates.TemplateResponse("onboarding.html", {"request": request})
+async def serve_onboarding_page(request: Request): return templates.TemplateResponse("onboarding.html", {"request": request})
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def serve_dashboard_page(request: Request): # <- FIX: Auth dependency removed
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+async def serve_dashboard_page(request: Request): return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.get("/prediction", response_class=HTMLResponse)
-async def serve_prediction_page(request: Request): # <- FIX: Auth dependency removed
-    return templates.TemplateResponse("prediction.html", {"request": request})
+async def serve_prediction_page(request: Request): return templates.TemplateResponse("prediction.html", {"request": request})
 
 @app.get("/history", response_class=HTMLResponse)
-async def serve_history_page(request: Request): # <- FIX: Auth dependency removed
-    return templates.TemplateResponse("history.html", {"request": request})
+async def serve_history_page(request: Request): return templates.TemplateResponse("history.html", {"request": request})
 
-# ==============================================================================
-# API ENDPOINTS (These remain protected)
-# ==============================================================================
+# --- API ENDPOINTS ---
+
+@app.get("/api/geocode")
+async def geocode_location(q: str = Query(..., min_length=1), user: dict = Depends(get_current_user)):
+    """
+    NEW: This endpoint takes a search query (like a city name) and returns its
+    latitude and longitude using the WeatherAPI search functionality.
+    """
+    if not WEATHERAPI_KEY:
+        raise HTTPException(status_code=503, detail="Weather service is not configured.")
+    
+    search_url = f"http://api.weatherapi.com/v1/search.json?key={WEATHERAPI_KEY}&q={q}"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(search_url)
+            resp.raise_for_status()
+            results = resp.json()
+            
+            if not results:
+                raise HTTPException(status_code=404, detail=f"Location '{q}' not found.")
+            
+            # Take the most relevant (first) result
+            first_result = results[0]
+            full_name = f"{first_result['name']}, {first_result['region']}, {first_result['country']}"
+            
+            return JSONResponse(content={
+                "name": full_name,
+                "latitude": first_result['lat'],
+                "longitude": first_result['lon']
+            })
+
+        except httpx.HTTPStatusError:
+            raise HTTPException(status_code=404, detail=f"Could not find location '{q}'. Please be more specific.")
+        except Exception as e:
+            print(f"❌ Unexpected error during geocoding: {e}")
+            raise HTTPException(status_code=500, detail="An error occurred while searching for the location.")
 
 @app.get("/api/user-status")
 async def get_user_status(user: dict = Depends(get_current_user)):
@@ -159,7 +184,7 @@ async def get_user_status(user: dict = Depends(get_current_user)):
     user_uid = user["uid"]
     doc_ref = db.collection("predictions").document(user_uid)
     doc = doc_ref.get()
-    has_onboarded = doc.exists and "lands" in doc.to_dict()
+    has_onboarded = doc.exists and "lands" in doc.to_dict() and len(doc.to_dict()["lands"]) > 0
     return JSONResponse(content={"has_onboarded": has_onboarded})
 
 @app.post("/api/onboard")
@@ -168,12 +193,12 @@ async def handle_onboarding(land_data: LandData, user: dict = Depends(get_curren
     user_uid = user["uid"]
     user_doc_ref = db.collection("predictions").document(user_uid)
     try:
-        user_doc_ref.set({"user_email": user.get("email", "N/A"), "lands": [land_data.dict()]}, merge=True)
-        print(f"✅ Onboarding data saved for user {user_uid}.")
-        return JSONResponse(content={"status": "success"}, status_code=201)
+        user_doc_ref.set({"user_email": user.get("email", "N/A"), "lands": firestore.ArrayUnion([land_data.dict()])}, merge=True)
+        print(f"✅ New plot added for user {user_uid}.")
+        return JSONResponse(content={"status": "success", "plot_id": land_data.id}, status_code=201)
     except Exception as e:
-        print(f"❌ Error saving onboarding data for {user_uid}: {e}")
-        raise HTTPException(status_code=500, detail="Could not save farm details.")
+        print(f"❌ Error saving new plot for {user_uid}: {e}")
+        raise HTTPException(status_code=500, detail="Could not save new plot details.")
 
 @app.get("/api/dashboard-data")
 async def get_dashboard_data(user: dict = Depends(get_current_user)):
@@ -181,25 +206,64 @@ async def get_dashboard_data(user: dict = Depends(get_current_user)):
     user_uid = user["uid"]
     doc_ref = db.collection("predictions").document(user_uid)
     doc = doc_ref.get()
-    if not doc.exists or "lands" not in doc.to_dict():
+    if not doc.exists or "lands" not in doc.to_dict() or not doc.to_dict()["lands"]:
         raise HTTPException(status_code=404, detail="User has not completed onboarding.")
-    farm_data = doc.to_dict().get("lands", [])[0]
-    location = farm_data.get("location", {})
-    lat = location.get("latitude")
-    lon = location.get("longitude")
-    weather_data = None
-    if lat and lon and WEATHERAPI_KEY:
-        weather_url = f"http://api.weatherapi.com/v1/current.json?key={WEATHERAPI_KEY}&q={lat},{lon}"
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(weather_url)
-                resp.raise_for_status()
-                weather_data = resp.json()
-                print(f"✅ Fetched weather from WeatherAPI for {user_uid} at ({lat}, {lon}).")
-        except Exception as e:
-            print(f"⚠️ Could not fetch weather data from WeatherAPI: {e}")
-            weather_data = {"error": "Could not retrieve weather data."}
-    return JSONResponse(content={"farm_data": farm_data, "weather_data": weather_data})
+    
+    all_plots = doc.to_dict().get("lands", [])
+    
+    needs_update = False
+    for plot in all_plots:
+        if "id" not in plot:
+            plot["id"] = str(uuid.uuid4())
+            needs_update = True
+            print(f"🩺 Migrating plot '{plot['name']}' for user {user_uid}, adding new ID.")
+    
+    if needs_update:
+        doc_ref.update({"lands": all_plots})
+        print(f"✅ Data migration complete for user {user_uid}.")
+
+    weather_forecasts = []
+    async with httpx.AsyncClient() as client:
+        for plot in all_plots:
+            location = plot.get("location", {})
+            lat = location.get("latitude")
+            lon = location.get("longitude")
+            
+            if lat and lon and WEATHERAPI_KEY:
+                weather_url = f"http://api.weatherapi.com/v1/forecast.json?key={WEATHERAPI_KEY}&q={lat},{lon}&days=3&aqi=yes&alerts=yes"
+                try:
+                    resp = await client.get(weather_url)
+                    resp.raise_for_status()
+                    weather_forecasts.append(resp.json())
+                except Exception as e:
+                    print(f"⚠️ Could not fetch weather for plot '{plot['name']}': {e}")
+                    weather_forecasts.append({"error": f"Could not retrieve weather for {plot['name']}."})
+            else:
+                weather_forecasts.append({"error": f"Location not set for {plot['name']}."})
+                
+    return JSONResponse(content={"all_plots": all_plots, "weather_forecasts": weather_forecasts})
+
+@app.post("/api/lands/delete")
+async def delete_land_plot(request: LandDeleteRequest, user: dict = Depends(get_current_user)):
+    if not db: raise HTTPException(status_code=503, detail="Database service unavailable.")
+    user_uid = user["uid"]
+    plot_id_to_delete = request.plot_id
+    user_doc_ref = db.collection("predictions").document(user_uid)
+    try:
+        doc = user_doc_ref.get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="User document not found.")
+        all_plots = doc.to_dict().get("lands", [])
+        updated_plots = [plot for plot in all_plots if plot.get("id") != plot_id_to_delete]
+        if len(updated_plots) == len(all_plots):
+            print(f"⚠️ Plot ID {plot_id_to_delete} not found for user {user_uid}, might be a stale request.")
+            raise HTTPException(status_code=404, detail="Plot ID not found in user's lands.")
+        user_doc_ref.update({"lands": updated_plots})
+        print(f"✅ Plot {plot_id_to_delete} deleted for user {user_uid}.")
+        return JSONResponse(content={"status": "success", "deleted_id": plot_id_to_delete})
+    except Exception as e:
+        print(f"❌ Error deleting plot {plot_id_to_delete} for {user_uid}: {e}")
+        raise HTTPException(status_code=500, detail=f"Could not delete plot: {e}")
 
 @app.get("/api/history")
 async def get_prediction_history(user: dict = Depends(get_current_user)):
@@ -217,8 +281,7 @@ async def get_prediction_history(user: dict = Depends(get_current_user)):
 
 @app.post("/predict")
 async def predict_image(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
-    if not model or plant_data_df is None:
-        raise HTTPException(status_code=503, detail="Model not loaded.")
+    if not model or plant_data_df is None: raise HTTPException(status_code=503, detail="Model not loaded.")
     image_bytes = await file.read()
     preprocessed_image = preprocess_image(image_bytes)
     predictions = model.predict(preprocessed_image)

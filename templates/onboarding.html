@@ -25,7 +25,7 @@
         .primary-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6); }
         .primary-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         .secondary-btn { background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); }
-        .secondary-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .secondary-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
         .loading-spinner { border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 3px solid #fff; width: 20px; height: 20px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .text-glow { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
@@ -72,10 +72,19 @@
                         <button type="button" id="getLocationBtn" class="secondary-btn w-full py-3 px-4 rounded-xl font-semibold text-base flex items-center justify-center space-x-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                             <span>Use Current Location</span>
-                            <div id="locationSpinner" class="loading-spinner hidden"></div>
                         </button>
-                        <div id="locationStatus" class="text-center text-sm text-emerald-300 font-medium hidden"></div>
-                        <input type="text" id="manualLocation" class="input-field w-full px-4 py-3 rounded-xl" placeholder="Or enter manually (e.g., City, State)">
+                        
+                        <!-- NEW: Manual Search Input Group -->
+                        <div class="flex gap-2">
+                            <input type="text" id="manualLocation" class="input-field w-full px-4 py-3 rounded-xl" placeholder="Or search for a city (e.g., Coimbatore)">
+                            <button type="button" id="searchLocationBtn" class="secondary-btn px-4 rounded-xl font-semibold">
+                                <span id="searchBtnText">Search</span>
+                                <div id="searchSpinner" class="loading-spinner hidden" style="width:20px; height:20px; border-width: 2px;"></div>
+                            </button>
+                        </div>
+
+                        <div id="locationStatus" class="text-center text-sm font-medium hidden"></div>
+                        
                         <!-- Hidden fields to store coordinates -->
                         <input type="hidden" id="latitude">
                         <input type="hidden" id="longitude">
@@ -114,18 +123,24 @@
         // UI Elements
         const onboardingForm = document.getElementById('onboardingForm');
         const getLocationBtn = document.getElementById('getLocationBtn');
-        const locationSpinner = document.getElementById('locationSpinner');
+        const searchLocationBtn = document.getElementById('searchLocationBtn');
         const locationStatus = document.getElementById('locationStatus');
         const latitudeInput = document.getElementById('latitude');
         const longitudeInput = document.getElementById('longitude');
+        const manualLocationInput = document.getElementById('manualLocation');
         const formError = document.getElementById('formError');
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btnText');
         const btnSpinner = document.getElementById('btnSpinner');
+        const searchBtnText = document.getElementById('searchBtnText');
+        const searchSpinner = document.getElementById('searchSpinner');
+        
+        let currentUser = null;
 
-        // Check if user is logged in, otherwise redirect
         onAuthStateChanged(auth, (user) => {
-            if (!user) {
+            if (user) {
+                currentUser = user;
+            } else {
                 window.location.replace('/login');
             }
         });
@@ -133,32 +148,55 @@
         // --- Geolocation Logic ---
         getLocationBtn.addEventListener('click', () => {
             if (!navigator.geolocation) {
-                showError("Geolocation is not supported by your browser.");
+                showLocationStatus("Geolocation is not supported by your browser.", true);
                 return;
             }
-
-            locationSpinner.classList.remove('hidden');
             getLocationBtn.disabled = true;
-            locationStatus.classList.add('hidden');
-
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const { latitude, longitude } = position.coords;
-                    latitudeInput.value = latitude;
-                    longitudeInput.value = longitude;
-                    
-                    locationStatus.textContent = `✅ Location captured! (${latitude.toFixed(2)}, ${longitude.toFixed(2)})`;
-                    locationStatus.classList.remove('hidden');
-                    document.getElementById('manualLocation').value = ''; // Clear manual input
-                    locationSpinner.classList.add('hidden');
+                    updateCoordinates(latitude, longitude, `Current Location (${latitude.toFixed(2)}, ${longitude.toFixed(2)})`);
+                    manualLocationInput.value = ''; // Clear manual input
                     getLocationBtn.disabled = false;
                 },
                 () => {
-                    showError("Unable to retrieve your location. Please grant permission or enter it manually.");
-                    locationSpinner.classList.add('hidden');
+                    showLocationStatus("Unable to retrieve your location. Please grant permission or enter it manually.", true);
                     getLocationBtn.disabled = false;
                 }
             );
+        });
+
+        // --- NEW: Manual Search Logic ---
+        searchLocationBtn.addEventListener('click', async () => {
+            const query = manualLocationInput.value.trim();
+            if (!query) {
+                showLocationStatus("Please enter a city or place to search.", true);
+                return;
+            }
+            if (!currentUser) return;
+
+            setSearchLoading(true);
+
+            try {
+                const token = await currentUser.getIdToken();
+                // We will create this new API endpoint in app.py next
+                const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Location not found.');
+                }
+
+                const data = await response.json();
+                updateCoordinates(data.latitude, data.longitude, data.name);
+
+            } catch (error) {
+                showLocationStatus(error.message, true);
+            } finally {
+                setSearchLoading(false);
+            }
         });
 
         // --- Form Submission Logic ---
@@ -166,36 +204,32 @@
             e.preventDefault();
             hideError();
 
-            const user = auth.currentUser;
-            if (!user) {
+            if (!currentUser) {
                 showError("You are not logged in. Please refresh and try again.");
                 return;
             }
 
-            // Validate that we have some form of location
-            if (!latitudeInput.value && !document.getElementById('manualLocation').value) {
-                showError("Please provide a location for your farm.");
+            // Validate that we have coordinates
+            if (!latitudeInput.value || !longitudeInput.value) {
+                showError("Please set a location for your farm using one of the options.");
                 return;
             }
 
             setLoadingState(true);
 
-            // Collect form data
             const landData = {
                 name: document.getElementById('landName').value,
                 area: parseFloat(document.getElementById('landArea').value),
                 unit: document.getElementById('areaUnit').value,
                 location: {
-                    latitude: latitudeInput.value ? parseFloat(latitudeInput.value) : null,
-                    longitude: longitudeInput.value ? parseFloat(longitudeInput.value) : null,
-                    manual_entry: document.getElementById('manualLocation').value
+                    latitude: parseFloat(latitudeInput.value),
+                    longitude: parseFloat(longitudeInput.value),
+                    manual_entry: manualLocationInput.value || locationStatus.textContent // Save the text for display
                 }
             };
 
             try {
-                const token = await user.getIdToken();
-                
-                // We will create this new API endpoint in app.py next
+                const token = await currentUser.getIdToken();
                 const response = await fetch('/api/onboard', {
                     method: 'POST',
                     headers: {
@@ -204,15 +238,8 @@
                     },
                     body: JSON.stringify(landData)
                 });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Failed to save farm details.');
-                }
-
-                // Success! Redirect to the dashboard.
+                if (!response.ok) throw new Error('Failed to save farm details.');
                 window.location.replace('/dashboard');
-
             } catch (error) {
                 showError(error.message);
                 setLoadingState(false);
@@ -220,25 +247,32 @@
         });
 
         // --- Helper Functions ---
+        function updateCoordinates(lat, lon, name) {
+            latitudeInput.value = lat;
+            longitudeInput.value = lon;
+            showLocationStatus(`✅ Location Set: ${name}`, false);
+        }
+
+        function showLocationStatus(message, isError = false) {
+            locationStatus.textContent = message;
+            locationStatus.className = `text-center text-sm font-medium ${isError ? 'text-red-300' : 'text-emerald-300'}`;
+            locationStatus.classList.remove('hidden');
+        }
+
         function setLoadingState(isLoading) {
             submitBtn.disabled = isLoading;
-            if (isLoading) {
-                btnText.classList.add('hidden');
-                btnSpinner.classList.remove('hidden');
-            } else {
-                btnText.classList.remove('hidden');
-                btnSpinner.classList.add('hidden');
-            }
+            btnText.classList.toggle('hidden', isLoading);
+            btnSpinner.classList.toggle('hidden', !isLoading);
         }
 
-        function showError(message) {
-            formError.textContent = message;
-            formError.classList.remove('hidden');
+        function setSearchLoading(isLoading) {
+            searchLocationBtn.disabled = isLoading;
+            searchBtnText.classList.toggle('hidden', isLoading);
+            searchSpinner.classList.toggle('hidden', !isLoading);
         }
 
-        function hideError() {
-            formError.classList.add('hidden');
-        }
+        function showError(message) { formError.textContent = message; formError.classList.remove('hidden'); }
+        function hideError() { formError.classList.add('hidden'); }
 
         function createParticles() {
             const container = document.querySelector('.bg-particles');
