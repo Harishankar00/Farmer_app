@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Setup Your Farm</title>
+    <title>Manage Your Plots</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -30,76 +30,126 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .text-glow { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
         .error-message { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); backdrop-filter: blur(10px); }
+        .back-btn { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease; }
+        .back-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateX(-5px); }
     </style>
 </head>
 <body>
     <div class="bg-particles"></div>
 
-    <div class="relative z-10 flex items-center justify-center min-h-screen p-4">
-        <div class="glass-card p-6 sm:p-8 rounded-3xl w-full max-w-lg space-y-6 sm:space-y-8 text-white">
-            <div class="text-center space-y-3">
-                <h1 class="text-3xl sm:text-4xl font-bold text-glow">🚜 Welcome, Farmer!</h1>
-                <p class="text-white/80 text-base sm:text-lg font-light">Let's set up your first plot of land.</p>
+    <header class="fixed top-0 left-0 w-full p-4 z-50">
+        <a href="/dashboard" class="back-btn flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-medium transition-all w-max">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            <span>Back to Dashboard</span>
+        </a>
+    </header>
+
+    <div class="relative z-10 flex items-center justify-center min-h-screen p-4 pt-20 sm:pt-4">
+        <div class="glass-card p-6 sm:p-8 rounded-3xl w-full max-w-5xl space-y-8 text-white">
+            <div class="text-center">
+                <h1 class="text-3xl sm:text-4xl font-bold text-glow">🚜 Manage Your Plots</h1>
             </div>
 
-            <form id="onboardingForm" class="space-y-6">
-                <!-- Land Name -->
-                <div>
-                    <label for="landName" class="block text-sm font-medium text-white/90 mb-2">Land / Plot Name</label>
-                    <input type="text" id="landName" class="input-field w-full px-4 py-3 rounded-xl" placeholder="e.g., North Field" required>
-                </div>
-
-                <!-- Land Area -->
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="col-span-2">
-                        <label for="landArea" class="block text-sm font-medium text-white/90 mb-2">Area</label>
-                        <input type="number" id="landArea" class="input-field w-full px-4 py-3 rounded-xl" placeholder="e.g., 5.5" step="0.1" required>
-                    </div>
-                    <div>
-                        <label for="areaUnit" class="block text-sm font-medium text-white/90 mb-2">Unit</label>
-                        <select id="areaUnit" class="input-field w-full px-4 py-3 rounded-xl appearance-none">
-                            <option>Acres</option>
-                            <option>Hectares</option>
-                            <option>Square Meters</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Location -->
-                <div>
-                    <label class="block text-sm font-medium text-white/90 mb-2">Location</label>
-                    <div class="space-y-3">
-                        <button type="button" id="getLocationBtn" class="secondary-btn w-full py-3 px-4 rounded-xl font-semibold text-base flex items-center justify-center space-x-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                            <span>Use Current Location</span>
-                        </button>
-                        
-                        <!-- NEW: Manual Search Input Group -->
-                        <div class="flex gap-2">
-                            <input type="text" id="manualLocation" class="input-field w-full px-4 py-3 rounded-xl" placeholder="Or search for a city (e.g., Coimbatore)">
-                            <button type="button" id="searchLocationBtn" class="secondary-btn px-4 rounded-xl font-semibold">
-                                <span id="searchBtnText">Search</span>
-                                <div id="searchSpinner" class="loading-spinner hidden" style="width:20px; height:20px; border-width: 2px;"></div>
-                            </button>
+            <!-- Section 1: Add/Edit Plot Form -->
+            <form id="plotForm" class="space-y-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-8">
+                    <!-- Column 1: Plot Details -->
+                    <div class="space-y-6">
+                         <div class="text-center lg:text-left">
+                            <h2 id="formTitle" class="text-2xl font-bold text-glow">➕ Add a New Plot</h2>
+                            <p id="formSubtitle" class="text-white/80">Fill out the details to add a new plot to your farm.</p>
                         </div>
+                        <div>
+                            <label for="landName" class="block text-sm font-medium text-white/90 mb-2">Plot Name</label>
+                            <input type="text" id="landName" class="input-field w-full px-4 py-3 rounded-xl" placeholder="e.g., North Field" required>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="col-span-2">
+                                <label for="landArea" class="block text-sm font-medium text-white/90 mb-2">Area</label>
+                                <input type="number" id="landArea" class="input-field w-full px-4 py-3 rounded-xl" placeholder="e.g., 5.5" step="0.1" required>
+                            </div>
+                            <div>
+                                <label for="areaUnit" class="block text-sm font-medium text-white/90 mb-2">Unit</label>
+                                <select id="areaUnit" class="input-field w-full px-4 py-3 rounded-xl appearance-none"><option>Acres</option><option>Hectares</option></select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-white/90 mb-2">Location</label>
+                            <div class="space-y-3">
+                                <button type="button" id="getLocationBtn" class="secondary-btn w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center space-x-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span>Use Current Location</span>
+                                </button>
+                                <div class="flex gap-2">
+                                    <input type="text" id="manualLocation" class="input-field w-full px-4 py-3 rounded-xl" placeholder="Or search for a city...">
+                                    <button type="button" id="searchLocationBtn" class="secondary-btn px-4 rounded-xl font-semibold">
+                                        <span id="searchBtnText">Search</span>
+                                        <div id="searchSpinner" class="loading-spinner hidden" style="width:20px; height:20px; border-width: 2px;"></div>
+                                    </button>
+                                </div>
+                                <div id="locationStatus" class="text-center text-sm font-medium hidden"></div>
+                                <input type="hidden" id="latitude"><input type="hidden" id="longitude">
+                            </div>
+                        </div>
+                    </div>
 
-                        <div id="locationStatus" class="text-center text-sm font-medium hidden"></div>
-                        
-                        <!-- Hidden fields to store coordinates -->
-                        <input type="hidden" id="latitude">
-                        <input type="hidden" id="longitude">
+                    <!-- Column 2: Crop Details -->
+                    <div class="space-y-6">
+                        <div class="text-center lg:text-left">
+                            <h2 class="text-2xl font-bold text-glow">🌱 Planted Crops</h2>
+                            <p class="text-white/80">Add or manage the crops on this plot.</p>
+                        </div>
+                        <div class="bg-white/10 p-4 rounded-2xl space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                                <div class="sm:col-span-2">
+                                    <label for="cropName" class="block text-sm font-medium text-white/90 mb-2">Crop Name</label>
+                                    <input type="text" id="cropName" class="input-field w-full px-4 py-3 rounded-xl" placeholder="e.g., Tomato, Brinjal...">
+                                </div>
+                                <div>
+                                    <label for="sowingDate" class="block text-sm font-medium text-white/90 mb-2">Sowing Date</label>
+                                    <input type="date" id="sowingDate" class="input-field w-full px-4 py-3 rounded-xl">
+                                </div>
+                            </div>
+                            <button type="button" id="addCropBtn" class="secondary-btn w-full py-3 rounded-xl font-semibold">Add Crop to Plot</button>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-white/90 mb-2">Crops for this Plot:</h3>
+                            <div id="cropList" class="space-y-2">
+                                <p class="text-white/60 text-sm">No crops added yet.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Error Message Display -->
                 <div id="formError" class="text-sm text-red-200 font-medium hidden error-message p-3 rounded-xl text-center"></div>
-
-                <!-- Submit Button -->
                 <button type="submit" id="submitBtn" class="primary-btn w-full py-3 sm:py-4 px-6 rounded-xl text-white font-semibold text-base sm:text-lg flex items-center justify-center">
-                    <span id="btnText">Save Farm & Continue</span>
+                    <span id="btnText">Save New Plot & Crops</span>
                     <div id="btnSpinner" class="loading-spinner mx-auto hidden"></div>
                 </button>
+                <button type="button" id="cancelEditBtn" class="w-full text-center py-2 text-white/70 hover:text-white hidden">Cancel Edit</button>
             </form>
+
+            <hr class="border-white/20">
+
+            <!-- Section 2: Existing Plots -->
+            <div class="space-y-4">
+                <h2 class="text-2xl font-bold text-white/90">My Existing Plots</h2>
+                <div id="existingPlotsList" class="space-y-3">
+                    <p class="text-white/60">Loading your plots...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden">
+        <div class="glass-card p-8 rounded-3xl text-center max-w-sm mx-4">
+            <h3 class="text-2xl font-bold mb-4">Are you sure?</h3>
+            <p class="text-white/80 mb-6">This will permanently delete the plot "<span id="plotNameToDelete" class="font-bold"></span>". This action cannot be undone.</p>
+            <div class="flex gap-4">
+                <button id="cancelDeleteBtn" class="secondary-btn w-full py-3 rounded-xl font-semibold">Cancel</button>
+                <button id="confirmDeleteBtn" class="bg-red-600 hover:bg-red-700 w-full py-3 rounded-xl font-semibold">Delete</button>
+            </div>
         </div>
     </div>
 
@@ -113,136 +163,285 @@
             projectId: "farmer-app-c93e9",
             storageBucket: "farmer-app-c93e9.firebasestorage.app",
             messagingSenderId: "25818831885",
-            appId: "1:25818831885:web:9f2e961f3d35b37002c944",
-            measurementId: "G-HJNMYGF6ZJ"
+            appId: "1:25818831885:web:9f2e961f3d35b37002c944"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        // UI Elements
-        const onboardingForm = document.getElementById('onboardingForm');
-        const getLocationBtn = document.getElementById('getLocationBtn');
-        const searchLocationBtn = document.getElementById('searchLocationBtn');
-        const locationStatus = document.getElementById('locationStatus');
+        // --- State ---
+        let currentUser = null;
+        let addedCrops = [];
+        let existingPlots = [];
+        let editModePlotId = null;
+
+        // --- UI Elements ---
+        const existingPlotsList = document.getElementById('existingPlotsList');
+        const plotForm = document.getElementById('plotForm');
+        const landNameInput = document.getElementById('landName');
+        const landAreaInput = document.getElementById('landArea');
+        const areaUnitSelect = document.getElementById('areaUnit');
+        const manualLocationInput = document.getElementById('manualLocation');
         const latitudeInput = document.getElementById('latitude');
         const longitudeInput = document.getElementById('longitude');
-        const manualLocationInput = document.getElementById('manualLocation');
-        const formError = document.getElementById('formError');
+        const locationStatus = document.getElementById('locationStatus');
+        const cropNameInput = document.getElementById('cropName');
+        const sowingDateInput = document.getElementById('sowingDate');
+        const addCropBtn = document.getElementById('addCropBtn');
+        const cropList = document.getElementById('cropList');
+        const formTitle = document.getElementById('formTitle');
+        const formSubtitle = document.getElementById('formSubtitle');
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btnText');
         const btnSpinner = document.getElementById('btnSpinner');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const deleteModal = document.getElementById('deleteModal');
+        const plotNameToDelete = document.getElementById('plotNameToDelete');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
         const searchBtnText = document.getElementById('searchBtnText');
         const searchSpinner = document.getElementById('searchSpinner');
-        
-        let currentUser = null;
+        const formError = document.getElementById('formError');
 
+        // --- Initial Setup ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
+                loadExistingPlots();
             } else {
                 window.location.replace('/login');
             }
         });
+        sowingDateInput.valueAsDate = new Date();
 
-        // --- Geolocation Logic ---
-        getLocationBtn.addEventListener('click', () => {
-            if (!navigator.geolocation) {
-                showLocationStatus("Geolocation is not supported by your browser.", true);
-                return;
-            }
-            getLocationBtn.disabled = true;
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    updateCoordinates(latitude, longitude, `Current Location (${latitude.toFixed(2)}, ${longitude.toFixed(2)})`);
-                    manualLocationInput.value = ''; // Clear manual input
-                    getLocationBtn.disabled = false;
-                },
-                () => {
-                    showLocationStatus("Unable to retrieve your location. Please grant permission or enter it manually.", true);
-                    getLocationBtn.disabled = false;
-                }
-            );
-        });
-
-        // --- NEW: Manual Search Logic ---
-        searchLocationBtn.addEventListener('click', async () => {
-            const query = manualLocationInput.value.trim();
-            if (!query) {
-                showLocationStatus("Please enter a city or place to search.", true);
-                return;
-            }
+        // --- Main Logic ---
+        async function loadExistingPlots() {
             if (!currentUser) return;
-
-            setSearchLoading(true);
-
             try {
                 const token = await currentUser.getIdToken();
-                // We will create this new API endpoint in app.py next
-                const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Location not found.');
-                }
-
-                const data = await response.json();
-                updateCoordinates(data.latitude, data.longitude, data.name);
-
+                const response = await fetch('/api/plots', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!response.ok) throw new Error('Could not fetch plots.');
+                existingPlots = await response.json();
+                renderExistingPlots();
             } catch (error) {
-                showLocationStatus(error.message, true);
-            } finally {
-                setSearchLoading(false);
+                existingPlotsList.innerHTML = `<p class="text-red-300">${error.message}</p>`;
             }
+        }
+
+        function renderExistingPlots() {
+            if (existingPlots.length === 0) {
+                existingPlotsList.innerHTML = `<p class="text-white/60">You haven't added any plots yet.</p>`;
+                return;
+            }
+            existingPlotsList.innerHTML = '';
+            existingPlots.forEach(plot => {
+                const plotEl = document.createElement('div');
+                plotEl.className = 'bg-white/5 p-4 rounded-lg flex justify-between items-center';
+                plotEl.innerHTML = `
+                    <div>
+                        <p class="font-bold text-lg">${plot.name}</p>
+                        <p class="text-sm text-white/70">${plot.area} ${plot.unit} - ${plot.location.manual_entry || 'GPS Location'}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button data-plot-id="${plot.id}" class="edit-btn secondary-btn px-4 py-2 text-sm rounded-lg font-semibold">Edit</button>
+                        <button data-plot-id="${plot.id}" data-plot-name="${plot.name}" class="delete-btn bg-red-500/50 hover:bg-red-500/80 px-4 py-2 text-sm rounded-lg font-semibold">Delete</button>
+                    </div>
+                `;
+                existingPlotsList.appendChild(plotEl);
+            });
+            document.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', handleEditClick));
+            document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', handleDeleteClick));
+        }
+
+        function handleEditClick(e) {
+            const plotId = e.target.dataset.plotId;
+            const plotToEdit = existingPlots.find(p => p.id === plotId);
+            if (!plotToEdit) return;
+
+            editModePlotId = plotId;
+            formTitle.textContent = '✏️ Edit Plot';
+            formSubtitle.textContent = `You are now editing "${plotToEdit.name}".`;
+            btnText.textContent = 'Update Plot';
+            cancelEditBtn.classList.remove('hidden');
+
+            landNameInput.value = plotToEdit.name;
+            landAreaInput.value = plotToEdit.area;
+            areaUnitSelect.value = plotToEdit.unit;
+            manualLocationInput.value = plotToEdit.location.manual_entry || '';
+            latitudeInput.value = plotToEdit.location.latitude || '';
+            longitudeInput.value = plotToEdit.location.longitude || '';
+            updateCoordinates(latitudeInput.value, longitudeInput.value, manualLocationInput.value);
+            
+            addedCrops = [...plotToEdit.crops];
+            renderAddedCrops();
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() {
+            editModePlotId = null;
+            plotForm.reset();
+            sowingDateInput.valueAsDate = new Date();
+            addedCrops = [];
+            renderAddedCrops();
+            formTitle.textContent = '➕ Add a New Plot';
+            formSubtitle.textContent = 'Fill out the details to add a new plot to your farm.';
+            btnText.textContent = 'Save New Plot & Crops';
+            cancelEditBtn.classList.add('hidden');
+            locationStatus.classList.add('hidden');
+        }
+
+        function handleDeleteClick(e) {
+            const plotId = e.target.dataset.plotId;
+            const plotName = e.target.dataset.plotName;
+            plotNameToDelete.textContent = plotName;
+            confirmDeleteBtn.dataset.plotId = plotId;
+            deleteModal.classList.remove('hidden');
+        }
+
+        async function confirmDelete() {
+            const plotId = confirmDeleteBtn.dataset.plotId;
+            if (!currentUser || !plotId) return;
+            
+            setLoadingState(true, confirmDeleteBtn);
+            try {
+                const token = await currentUser.getIdToken();
+                const response = await fetch('/api/plots/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ plot_id: plotId })
+                });
+                if (!response.ok) throw new Error('Failed to delete plot.');
+                await loadExistingPlots();
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                setLoadingState(false, confirmDeleteBtn);
+                deleteModal.classList.add('hidden');
+            }
+        }
+
+        // --- Event Listeners ---
+        addCropBtn.addEventListener('click', () => {
+            const name = cropNameInput.value.trim();
+            const date = sowingDateInput.value;
+            if (!name || !date) { showError("Please provide both a crop name and a sowing date."); return; }
+            hideError();
+            addedCrops.push({ crop_name: name, sowing_date: date });
+            renderAddedCrops();
+            cropNameInput.value = '';
+            cropNameInput.focus();
         });
 
-        // --- Form Submission Logic ---
-        onboardingForm.addEventListener('submit', async (e) => {
+        plotForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideError();
+            if (!currentUser) { showError("You are not logged in."); return; }
+            if (!latitudeInput.value || !longitudeInput.value) { showError("Please set a location for your farm."); return; }
+            if (addedCrops.length === 0) { showError("Please add at least one crop to this plot."); return; }
 
-            if (!currentUser) {
-                showError("You are not logged in. Please refresh and try again.");
-                return;
-            }
+            setLoadingState(true, submitBtn);
 
-            // Validate that we have coordinates
-            if (!latitudeInput.value || !longitudeInput.value) {
-                showError("Please set a location for your farm using one of the options.");
-                return;
-            }
-
-            setLoadingState(true);
-
-            const landData = {
-                name: document.getElementById('landName').value,
-                area: parseFloat(document.getElementById('landArea').value),
-                unit: document.getElementById('areaUnit').value,
+            const plotData = {
+                name: landNameInput.value,
+                area: parseFloat(landAreaInput.value),
+                unit: areaUnitSelect.value,
                 location: {
                     latitude: parseFloat(latitudeInput.value),
                     longitude: parseFloat(longitudeInput.value),
-                    manual_entry: manualLocationInput.value || locationStatus.textContent // Save the text for display
-                }
+                    manual_entry: manualLocationInput.value || locationStatus.textContent
+                },
+                crops: addedCrops
             };
 
             try {
                 const token = await currentUser.getIdToken();
-                const response = await fetch('/api/onboard', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(landData)
-                });
-                if (!response.ok) throw new Error('Failed to save farm details.');
-                window.location.replace('/dashboard');
+                let response;
+                if (editModePlotId) {
+                    const payload = { plot_id: editModePlotId, updated_plot_data: { ...plotData, id: editModePlotId } };
+                    response = await fetch('/api/plots/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    response = await fetch('/api/onboard', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(plotData)
+                    });
+                }
+
+                if (!response.ok) throw new Error(`Failed to ${editModePlotId ? 'update' : 'save'} farm details.`);
+                
+                resetForm();
+                await loadExistingPlots();
+
             } catch (error) {
                 showError(error.message);
-                setLoadingState(false);
+            } finally {
+                setLoadingState(false, submitBtn);
+            }
+        });
+        
+        cancelEditBtn.addEventListener('click', resetForm);
+        cancelDeleteBtn.addEventListener('click', () => deleteModal.classList.add('hidden'));
+        confirmDeleteBtn.addEventListener('click', confirmDelete);
+
+        function renderAddedCrops() {
+            if (addedCrops.length === 0) {
+                cropList.innerHTML = `<p class="text-white/60 text-sm">No crops added yet.</p>`;
+                return;
+            }
+            cropList.innerHTML = '';
+            addedCrops.forEach((crop, index) => {
+                const cropEl = document.createElement('div');
+                cropEl.className = 'bg-white/5 p-3 rounded-lg flex justify-between items-center';
+                cropEl.innerHTML = `
+                    <div>
+                        <p class="font-semibold">${crop.crop_name}</p>
+                        <p class="text-xs text-white/70">Sown on: ${crop.sowing_date}</p>
+                    </div>
+                    <button type="button" data-index="${index}" class="remove-crop-btn text-red-400 hover:text-red-300 font-bold text-xl">&times;</button>
+                `;
+                cropList.appendChild(cropEl);
+            });
+            document.querySelectorAll('.remove-crop-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const indexToRemove = parseInt(e.target.dataset.index);
+                    addedCrops.splice(indexToRemove, 1);
+                    renderAddedCrops();
+                });
+            });
+        }
+        
+        // --- Geolocation Logic ---
+        document.getElementById('getLocationBtn').addEventListener('click', () => {
+            if (!navigator.geolocation) { showLocationStatus("Geolocation is not supported.", true); return; }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    updateCoordinates(pos.coords.latitude, pos.coords.longitude, `Current Location`);
+                    manualLocationInput.value = '';
+                },
+                () => { showLocationStatus("Unable to retrieve location.", true); }
+            );
+        });
+
+        document.getElementById('searchLocationBtn').addEventListener('click', async () => {
+            const query = manualLocationInput.value.trim();
+            if (!query) { showLocationStatus("Please enter a place to search.", true); return; }
+            if (!currentUser) return;
+            setSearchLoading(true);
+            try {
+                const token = await currentUser.getIdToken();
+                const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!response.ok) { const err = await response.json(); throw new Error(err.detail || 'Location not found.'); }
+                const data = await response.json();
+                updateCoordinates(data.latitude, data.longitude, data.name);
+            } catch (error) {
+                showLocationStatus(error.message, true);
+            } finally {
+                setSearchLoading(false);
             }
         });
 
@@ -252,37 +451,35 @@
             longitudeInput.value = lon;
             showLocationStatus(`✅ Location Set: ${name}`, false);
         }
-
         function showLocationStatus(message, isError = false) {
             locationStatus.textContent = message;
             locationStatus.className = `text-center text-sm font-medium ${isError ? 'text-red-300' : 'text-emerald-300'}`;
             locationStatus.classList.remove('hidden');
         }
-
-        function setLoadingState(isLoading) {
-            submitBtn.disabled = isLoading;
-            btnText.classList.toggle('hidden', isLoading);
-            btnSpinner.classList.toggle('hidden', !isLoading);
+        function setLoadingState(isLoading, button) {
+            button.disabled = isLoading;
+            const text = button.querySelector('span');
+            const spinner = button.querySelector('div');
+            if (text && spinner) {
+                text.classList.toggle('hidden', isLoading);
+                spinner.classList.toggle('hidden', !isLoading);
+            } else if (button.innerHTML.includes('Delete')) {
+                // Special case for delete button
+            }
         }
-
         function setSearchLoading(isLoading) {
             searchLocationBtn.disabled = isLoading;
             searchBtnText.classList.toggle('hidden', isLoading);
             searchSpinner.classList.toggle('hidden', !isLoading);
         }
-
         function showError(message) { formError.textContent = message; formError.classList.remove('hidden'); }
         function hideError() { formError.classList.add('hidden'); }
 
         function createParticles() {
             const container = document.querySelector('.bg-particles');
+            if(container.children.length > 0) return;
             const particleCount = 20;
-            for (let i = 0; i < particleCount; i++) {
-                const p = document.createElement('div');
-                p.className = 'particle';
-                p.style.cssText = `left:${Math.random()*100}%; top:${Math.random()*100}%; width:${Math.random()*6+4}px; height:${p.style.width}; animation-delay:${Math.random()*8}s; animation-duration:${Math.random()*6+6}s;`;
-                container.appendChild(p);
-            }
+            for (let i = 0; i < particleCount; i++) { const p = document.createElement('div'); p.className = 'particle'; p.style.cssText = `left:${Math.random()*100}%; top:${Math.random()*100}%; width:${Math.random()*6+4}px; height:${p.style.width}; animation-delay:${Math.random()*8}s; animation-duration:${Math.random()*6+6}s;`; container.appendChild(p); }
         }
         createParticles();
     </script>
